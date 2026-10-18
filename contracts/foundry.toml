@@ -1,0 +1,63 @@
+# Ìpín contracts — see docs/decisions.md (ADR-004) for the solc/EVM choice.
+[profile.default]
+src = "src"
+test = "test"
+script = "script"
+out = "out"
+libs = ["lib"]
+solc_version = "0.8.24"
+evm_version = "cancun"
+optimizer = true
+optimizer_runs = 200
+via_ir = false
+bytecode_hash = "none"
+cbor_metadata = false
+# Fail the build on any compiler warning: warnings are bugs here.
+deny = "warnings"
+fs_permissions = [{ access = "read", path = "./" }]
+
+[profile.default.fuzz]
+runs = 256
+seed = "0x1"
+
+[profile.default.invariant]
+runs = 256
+depth = 64
+fail_on_revert = false
+call_override = false
+
+# Deeper search for local invariant work: `FOUNDRY_PROFILE=invariant forge test --mt invariant_`
+[profile.invariant]
+[profile.invariant.fuzz]
+runs = 256
+[profile.invariant.invariant]
+runs = 512
+depth = 128
+fail_on_revert = false
+
+# CI / pre-submit: many more runs, fresh randomness.
+[profile.ci]
+[profile.ci.fuzz]
+runs = 10000
+[profile.ci.invariant]
+runs = 1024
+depth = 256
+fail_on_revert = false
+
+[fmt]
+line_length = 120
+tab_width = 4
+bracket_spacing = false
+int_types = "long"
+multiline_func_header = "attributes_first"
+quote_style = "double"
+number_underscore = "thousands"
+override_spacing = false
+wrap_comments = false
+sort_imports = true
+
+[rpc_endpoints]
+mezo_testnet = "https://rpc.test.mezo.org"
+
+[etherscan]
+# Mezo testnet explorer is Blockscout: https://explorer.test.mezo.org

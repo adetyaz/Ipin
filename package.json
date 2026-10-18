@@ -1,0 +1,23 @@
+{
+  "name": "ipin",
+  "private": true,
+  "description": "Ìpín: purpose-bound money on Mezo (MUSD). See README.md.",
+  "packageManager": "pnpm@11.17.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "cd contracts && forge build",
+    "test": "cd contracts && forge test",
+    "test:invariant": "cross-env FOUNDRY_PROFILE=invariant forge test --root contracts --match-test invariant_",
+    "test:ci": "cross-env FOUNDRY_PROFILE=ci forge test --root contracts",
+    "fmt": "cd contracts && forge fmt",
+    "fmt:check": "cd contracts && forge fmt --check",
+    "lint": "node scripts/check-pragma.mjs && solhint --max-warnings 0 \"contracts/src/**/*.sol\" \"contracts/test/**/*.sol\" \"contracts/script/**/*.sol\"",
+    "check": "pnpm fmt:check && pnpm lint && pnpm test"
+  },
+  "devDependencies": {
+    "cross-env": "^10.1.0",
+    "solhint": "^6.2.5"
+  }
+}

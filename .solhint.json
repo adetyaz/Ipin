@@ -1,0 +1,65 @@
+{
+  "extends": "solhint:recommended",
+  "rules": {
+    "compiler-version": [
+      "error",
+      "0.8.24"
+    ],
+    "reason-string": "off",
+    "avoid-tx-origin": "error",
+    "avoid-low-level-calls": "error",
+    "reentrancy": "error",
+    "check-send-result": "error",
+    "multiple-sends": "error",
+    "avoid-call-value": "error",
+    "avoid-sha3": "error",
+    "avoid-suicide": "error",
+    "avoid-throw": "error",
+    "not-rely-on-time": "off",
+    "state-visibility": "error",
+    "func-visibility": [
+      "error",
+      {
+        "ignoreConstructors": true
+      }
+    ],
+    "no-unused-vars": "error",
+    "no-unused-import": "error",
+    "no-global-import": "error",
+    "no-empty-blocks": "error",
+    "no-inline-assembly": "error",
+    "payable-fallback": "error",
+    "immutable-vars-naming": [
+      "error",
+      {
+        "immutablesAsConstants": false
+      }
+    ],
+    "const-name-snakecase": "error",
+    "contract-name-capwords": "error",
+    "func-name-mixedcase": "off",
+    "var-name-mixedcase": "error",
+    "use-forbidden-name": "error",
+    "imports-on-top": "error",
+    "ordering": "warn",
+    "gas-custom-errors": "error",
+    "foundry-test-functions": "off",
+    "max-line-length": [
+      "error",
+      120
+    ],
+    "import-path-check": "off",
+    "use-natspec": "off",
+    "explicit-types": [
+      "error",
+      "explicit"
+    ],
+    "no-console": "error",
+    "private-vars-leading-underscore": [
+      "error",
+      {
+        "strict": false
+      }
+    ]
+  }
+}

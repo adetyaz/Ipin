@@ -1,0 +1,30 @@
+# Foundry
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+broadcast/
+contracts/coverage/
+lcov.info
+
+# Node
+node_modules/
+dist/
+.next/
+*.tsbuildinfo
+.pnpm-store/
+
+# Secrets — never commit keys
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+keystore/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log
+
+# Personal editor settings
+.vscode/
