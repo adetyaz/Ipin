@@ -47,3 +47,12 @@ don't build anything that depends on it) · **superseded**. Append new entries; 
 - Status: **open**
 - Question: keep "Ìpín" (working name) or rename. Until decided, use `Ipin` in identifiers and
   "Ìpín" in user-facing text.
+
+## ADR-007 Airtime provider: VTpass (sandbox) for Wave 1
+- Status: **accepted** (chief of staff, 2026-10-18)
+- Why: self-serve sandbox with deterministic test numbers (`08011111111` success,
+  `300000000000` timeout, anything else fails), so the R6 refund path is demonstrable without mocks.
+  Reloadly is the fallback (no forced-failure path in sandbox).
+- Adapter rules: timeouts/unexpected responses are pending (R5) and get requeried; a late
+  reversal webhook (code `040`) after success must refund the pot (R6). Details:
+  `docs/research/partners.md`.
