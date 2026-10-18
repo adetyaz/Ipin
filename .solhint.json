@@ -60,6 +60,7 @@
       {
         "strict": false
       }
-    ]
+    ],
+    "gas-small-strings": "off"
   }
 }

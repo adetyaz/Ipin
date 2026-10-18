@@ -56,3 +56,9 @@ don't build anything that depends on it) · **superseded**. Append new entries; 
 - Adapter rules: timeouts/unexpected responses are pending (R5) and get requeried; a late
   reversal webhook (code `040`) after success must refund the pot (R6). Details:
   `docs/research/partners.md`.
+
+## ADR-008 Lint: `gas-small-strings` off
+- Status: accepted (2026-10-18, contracts agent; convention change per CLAUDE.md rule 6)
+- Why: EIP-712 type strings (`PaymentRequest(...)`, `Permit(...)`, `EIP712Domain(...)`) are longer
+  than 32 bytes by specification and are hashed at compile time into `bytes32` constants, so the
+  gas hint does not apply. Keeping the rule on would force disables on every typehash.
