@@ -75,3 +75,20 @@ don't build anything that depends on it) · **superseded**. Append new entries; 
   senders work.
 - Consequence: README's "a requester is a key with permissions on a pot" is wrong for Wave 1;
   fix it when the README is next updated. Details: `docs/research/wallets.md`.
+
+## ADR-009 Lint: more gas hints off; S6 follows solhint order
+- Status: accepted (2026-10-18, contracts agent; convention change per CLAUDE.md rule 6)
+- `gas-indexed-events` off: it asks to index amounts. Amounts must stay in event data so that
+  off-chain code and tests can sum them (I2); S9 already says which fields to index.
+- `gas-strict-inequalities` off: `>=`/`<=` on money comparisons (`cap`, `expiry`, books) are written
+  as the rule states them; rewriting them for ~3 gas makes off-by-one bugs more likely.
+- S6 (file order) changed to the order solhint's `ordering` rule enforces (types, constants,
+  state, events, errors, modifiers, functions), since lint runs with 0 warnings allowed.
+
+## ADR-010 Unallocated surplus in I1
+- Status: proposed (2026-10-18, contracts agent, following the coordinator's R10 brief)
+- Decision: `booksBalance()` is `assets >= liabilities`; assets above liabilities are reported by
+  `surplus()` and owed to no pot. Sources: MUSD sent to the vault without `deposit`, and savings
+  yield (R10), which the savings vault pays in MUSD outside the principal.
+- Open: who surplus is allocated to (pro-rata to `pot.saved`, the sender's pot, or the treasury) is
+  decided with R10. Until then it is not moved by any function (no sweep, S13).

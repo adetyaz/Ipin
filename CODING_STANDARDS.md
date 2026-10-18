@@ -16,8 +16,9 @@ reviewers enforce the rest.
   `UPPER_SNAKE`; immutables `mixedCase`; private/internal functions and state `_leading`.
 - S5 Interfaces start with `I` and live in `src/interfaces/`. Policies in `src/policies/`, payee
   adapters in `src/adapters/`.
-- S6 File order: pragma, imports, errors, events, types, constants/immutables, state, modifiers,
-  constructor, external, public, internal, private, view/pure last within each group.
+- S6 File order (matches solhint `ordering`, which lint enforces): pragma, imports, `using`, types
+  (structs/enums), constants/immutables, state, events, errors, modifiers, constructor, external,
+  public, internal, private, view/pure last within each group.
 - S7 Custom errors name the failed check and carry the values: `error CapExceeded(uint256 potId,
   uint256 spent, uint256 cap);`. No `require(..., "string")`, no bare `revert()`.
 

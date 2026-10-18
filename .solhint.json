@@ -61,6 +61,8 @@
         "strict": false
       }
     ],
-    "gas-small-strings": "off"
+    "gas-small-strings": "off",
+    "gas-indexed-events": "off",
+    "gas-strict-inequalities": "off"
   }
 }
