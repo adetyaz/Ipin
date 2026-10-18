@@ -62,3 +62,16 @@ don't build anything that depends on it) · **superseded**. Append new entries; 
 - Why: EIP-712 type strings (`PaymentRequest(...)`, `Permit(...)`, `EIP712Domain(...)`) are longer
   than 32 bytes by specification and are hashed at compile time into `bytes32` constants, so the
   gas hint does not apply. Keeping the rule on would force disables on every typehash.
+
+## ADR-008 Wallets: requester has no chain key; sender uses Privy embedded wallet
+- Status: **proposed** (chief of staff, 2026-10-18; Privy spike due 2026-10-19)
+- Requester: invited by WhatsApp link; the browser generates a non-extractable WebCrypto P-256
+  device key (IndexedDB) that authenticates requests to the relayer. Nothing on-chain trusts it:
+  only the sender's EIP-712 approval settles (R8). Recovery = sender re-invites.
+- Sender: Privy embedded wallet (email/Google/passkey), signs typed data only (approvals and
+  MUSD permit), never sends a tx. Mezo Passport offered as "use my own wallet".
+  Fallback if Privy can't sign for chain 31611: passkey-PRF-derived key, same signing code.
+- Contracts verify approvals with SignatureChecker (EOA + ERC-1271) so Passport smart-account
+  senders work.
+- Consequence: README's "a requester is a key with permissions on a pot" is wrong for Wave 1;
+  fix it when the README is next updated. Details: `docs/research/wallets.md`.
