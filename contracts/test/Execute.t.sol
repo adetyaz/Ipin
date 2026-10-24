@@ -138,6 +138,46 @@ contract VaultExecuteTest is IpinTest {
         _vault.execute(req, sig);
     }
 
+    function test_R3_frontRunExecuteSettlesOnce() public {
+        // Someone copies the relayer's pending execute from the mempool and
+        // lands it first: the same payee gets the same amount once, the
+        // relayer's call reverts, and the fee is still owed to relayerAddress.
+        PaymentRequest memory req = _request(_potId, 5e18);
+        bytes memory sig = _sign(req, _senderKey);
+        address attacker = makeAddr("attacker");
+        vm.prank(attacker);
+        _vault.execute(req, sig);
+
+        vm.expectRevert(abi.encodeWithSelector(IPolicyEngine.NonceAlreadyUsed.selector, _sender, req.nonce));
+        vm.prank(_relayer);
+        _vault.execute(req, sig);
+        assertEq(_musd.balanceOf(_payee), 5e18);
+        assertEq(_musd.balanceOf(attacker), 0);
+        assertEq(_vault.unclaimedFees(), _FEE);
+    }
+
+    function test_R8_erc1271SignatureBoundToItsPot() public {
+        // One key owns a pot directly and also controls a smart account that
+        // owns another pot. A request it signs for one pot cannot settle on
+        // the other: potId is in the digest and the signer is that pot's
+        // owner, and each owner has its own nonce namespace.
+        (address owner, uint256 ownerKey) = makeAddrAndKey("dual-owner");
+        MockERC1271Wallet wallet = new MockERC1271Wallet(owner);
+        uint256 eoaPot = _ownedReadyPot(owner);
+        uint256 walletPot = _ownedReadyPot(address(wallet));
+
+        PaymentRequest memory req = _request(walletPot, 5e18);
+        bytes memory sig = _sign(req, ownerKey);
+        req.potId = eoaPot;
+        vm.expectRevert(abi.encodeWithSelector(IPolicyEngine.InvalidSignature.selector, eoaPot, owner));
+        _vault.execute(req, sig);
+
+        req.potId = walletPot;
+        _vault.execute(req, sig);
+        assertTrue(_vault.nonceUsed(address(wallet), req.nonce));
+        assertFalse(_vault.nonceUsed(owner, req.nonce));
+    }
+
     function test_R4_rejectsZeroAmount() public {
         PaymentRequest memory req = _request(_potId, 0);
         bytes memory sig = _sign(req, _senderKey);
@@ -188,6 +228,37 @@ contract VaultExecuteTest is IpinTest {
         assertEq(_vault.remainingCap(_potId), 10e18);
         _execute(_request(_potId, 10e18));
         assertEq(_vault.spent(_potId, 1), 10e18);
+    }
+
+    function test_R7_epochBoundaryAllowsTwoCapsBackToBack() public {
+        // ADR-003 accepted risk: fixed epochs, not a sliding window, so a full
+        // cap can be spent at the last second of one period and again at the
+        // first second of the next.
+        vm.prank(_sender);
+        _vault.setCap(_potId, 10e18);
+        uint256 created = _vault.getPot(_potId).createdAt;
+        vm.warp(created + _vault.PERIOD() - 1);
+        _execute(_request(_potId, 10e18));
+        vm.warp(created + _vault.PERIOD());
+        _execute(_request(_potId, 10e18));
+        assertEq(_musd.balanceOf(_payee), 20e18);
+    }
+
+    function test_R7_senderCanAlwaysExitToOwnAddress() public {
+        // No lock-in, which matters if the vault is ever redeployed: the
+        // sender approves itself, lifts the cap and pays the pot out through
+        // the normal policy path.
+        vm.startPrank(_sender);
+        _vault.setCap(_potId, type(uint256).max);
+        _vault.addPayee(_potId, _sender);
+        vm.stopPrank();
+        uint256 before = _musd.balanceOf(_sender);
+        PaymentRequest memory req = _request(_potId, 500e18 - _FEE);
+        req.payee = _sender;
+        _execute(req);
+        assertEq(_musd.balanceOf(_sender), before + 500e18 - _FEE);
+        assertEq(_vault.potBalance(_potId), 0);
+        assertTrue(_vault.booksBalance());
     }
 
     function test_R8_acceptsERC1271Sender() public {
@@ -267,6 +338,21 @@ contract VaultExecuteTest is IpinTest {
         vm.expectRevert();
         _vault.execute(req, sig);
         assertEq(_musd.balanceOf(_payee), 0);
+    }
+
+    /// @dev Pot owned by `_owner`, funded with 100 MUSD, `_payee` approved.
+    function _ownedReadyPot(address _owner) private returns (uint256 potId) {
+        _musd.mint(_owner, 100e18);
+        vm.startPrank(_owner);
+        _musd.approve(address(_vault), type(uint256).max);
+        potId = _vault.createPot("Upkeep", _CAP);
+        uint256[] memory pots = new uint256[](1);
+        pots[0] = potId;
+        uint16[] memory bps = new uint16[](1);
+        bps[0] = _BPS;
+        _vault.deposit(_vault.createSplit(pots, bps, potId), 100e18);
+        _vault.addPayee(potId, _payee);
+        vm.stopPrank();
     }
 
     function _tryExecute(uint256 _amount) private returns (bool settled) {

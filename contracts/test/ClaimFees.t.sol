@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import {Vault} from "../src/Vault.sol";
 import {IPolicyEngine} from "../src/interfaces/IPolicyEngine.sol";
+import {MockMUSD} from "./mocks/MockMUSD.sol";
 import {IpinTest} from "./utils/IpinTest.sol";
 
 /// @notice claimFees (R4).
@@ -21,6 +22,20 @@ contract VaultClaimFeesTest is IpinTest {
 
         vm.expectRevert(abi.encodeWithSelector(IPolicyEngine.NoFeesToWithdraw.selector));
         _vault.claimFees();
+    }
+
+    function test_R4_blockedRelayerOnlyFreezesFees() public {
+        // relayerAddress is immutable (ADR-016). If transfers to it fail, the
+        // fees stay in the vault as a liability; pot payments keep working.
+        uint256 potId = _readyPot();
+        _execute(_request(potId, 5e18));
+        _musd.setBlocked(_relayer, true);
+        vm.expectRevert(abi.encodeWithSelector(MockMUSD.RecipientBlocked.selector, _relayer));
+        _vault.claimFees();
+
+        _execute(_request(potId, 5e18));
+        assertEq(_vault.unclaimedFees(), 2 * _FEE);
+        assertTrue(_vault.booksBalance());
     }
 
     function test_R4_constructorBoundsFee() public {

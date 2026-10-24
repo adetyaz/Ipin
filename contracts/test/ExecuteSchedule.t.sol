@@ -99,6 +99,24 @@ contract VaultExecuteScheduleTest is IpinTest {
         _vault.executeSchedule(_scheduleId);
     }
 
+    function test_R9_failedRunDoesNotForfeitPeriod() public {
+        // Anyone may call executeSchedule. A run that reverts (here: no cap
+        // headroom) leaves nextPeriod unchanged, so calling at a bad moment
+        // cannot burn the period; a later call in the same period still pays.
+        vm.prank(_sender);
+        _vault.setCap(_potId, 0);
+        vm.warp(_start);
+        vm.expectRevert(abi.encodeWithSelector(IPolicyEngine.CapExceeded.selector, _potId, 0, _ALLOWANCE, 0));
+        _vault.executeSchedule(_scheduleId);
+        assertEq(_vault.getSchedule(_scheduleId).nextPeriod, 0);
+
+        vm.prank(_sender);
+        _vault.setCap(_potId, _CAP);
+        vm.warp(_start + _INTERVAL - 1);
+        _vault.executeSchedule(_scheduleId);
+        assertEq(_musd.balanceOf(_payee), _ALLOWANCE);
+    }
+
     // --- Emitted Events ---
 
     function test_R9_emitsScheduledPaymentAndFee() public {

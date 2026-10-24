@@ -131,6 +131,30 @@ contract PotsTest is IpinTest {
         assertTrue(_vault.booksBalance());
     }
 
+    function test_R2_frontRunPermitDoesNotBlockDeposit() public {
+        // An observer copies the permit from the pending deposit and submits
+        // it to MUSD first. The deposit skips the now-used permit and still
+        // succeeds; the allowance only lets the vault pull from the holder
+        // in a deposit the holder sends.
+        (address holder, uint256 key) = makeAddrAndKey("holder");
+        _musd.mint(holder, 100e18);
+        uint256 potId = _createPot(holder, 0);
+        uint256 splitId = _singleSplit(holder, potId);
+        uint256 amount = 40e18;
+        uint256 deadline = vm.getBlockTimestamp() + 1 hours;
+        bytes32 structHash = keccak256(abi.encode(_PERMIT_TYPEHASH, holder, address(_vault), amount, 0, deadline));
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", _musd.DOMAIN_SEPARATOR(), structHash));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(key, digest);
+
+        vm.prank(makeAddr("attacker"));
+        _musd.permit(holder, address(_vault), amount, deadline, v, r, s);
+
+        vm.prank(holder);
+        _vault.depositWithPermit(splitId, amount, deadline, v, r, s);
+        assertEq(_vault.potBalance(potId), amount);
+        assertEq(_musd.balanceOf(holder), 100e18 - amount);
+    }
+
     function test_I1_booksBalanceAfterDeposits() public {
         _fundedPot(0, 123e18);
         _fundedPot(0, 7);
