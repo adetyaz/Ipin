@@ -8,6 +8,8 @@
     busy?: boolean
     full?: boolean
     href?: string
+    target?: string
+    rel?: string
     children: Snippet
   }
 
@@ -17,6 +19,8 @@
     busy = false,
     full = false,
     href,
+    target,
+    rel,
     children,
     disabled,
     type = "button",
@@ -25,7 +29,7 @@
 </script>
 
 {#if href}
-  <a class="btn {variant} {size}" class:full {href}>
+  <a class="btn {variant} {size}" class:full {href} {target} {rel}>
     {@render children()}
   </a>
 {:else}

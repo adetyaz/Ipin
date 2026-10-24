@@ -27,6 +27,9 @@ export interface JoinedPot {
   potId: string
   label: string
   joinedAt: string
+  potName?: string
+  /** The sender's names for payee addresses, carried in the invite link. */
+  payeeNames?: Record<string, string>
 }
 
 const JOINED = "ipin:joined-pots"
@@ -80,4 +83,30 @@ export function setPayeeLabel(address: string, label: string): void {
 
 export function payeeLabel(address: string): string | undefined {
   return payeeLabels()[address.toLowerCase()]
+}
+
+// ---- Invite links carry payee names in the #fragment (never sent to a server) ----
+
+export function encodePayeeNames(names: Record<string, string>): string {
+  return Object.keys(names).length === 0
+    ? ""
+    : `#p=${encodeURIComponent(JSON.stringify(names))}`
+}
+
+export function decodePayeeNames(hash: string): Record<string, string> {
+  const m = /[#&]p=([^&]*)/.exec(hash)
+  if (!m?.[1]) return {}
+  try {
+    const raw: unknown = JSON.parse(decodeURIComponent(m[1]))
+    if (typeof raw !== "object" || raw === null) return {}
+    const out: Record<string, string> = {}
+    for (const [k, v] of Object.entries(raw)) {
+      if (/^0x[0-9a-fA-F]{40}$/.test(k) && typeof v === "string") {
+        out[k.toLowerCase()] = v.slice(0, 40)
+      }
+    }
+    return out
+  } catch {
+    return {}
+  }
 }

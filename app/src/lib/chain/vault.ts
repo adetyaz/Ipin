@@ -175,6 +175,18 @@ export async function readBooks(): Promise<Books> {
   return { balanced, assets, liabilities, surplus }
 }
 
+export async function readIsRequester(
+  potId: bigint,
+  who: Address,
+): Promise<boolean> {
+  return publicClient.readContract({
+    address: vault(),
+    abi: vaultAbi,
+    functionName: "isRequester",
+    args: [potId, who],
+  })
+}
+
 export async function readFee(): Promise<bigint> {
   return publicClient.readContract({
     address: vault(),
