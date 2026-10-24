@@ -75,6 +75,9 @@ Where the rule text allowed more than one reading, the stricter one is built and
   nonce used on any of the sender's pots cannot be reused on another.
 - R4: a payment of 0 is rejected (it would only move a fee). The fee is immutable and bounded in
   the constructor (0 < fee <= 1 MUSD).
+- I3: checked after every settlement (`spent <= cap` at that moment). If the sender lowers the cap
+  below what was already spent this period, `spent > cap` is allowed and every further payment in
+  that period is refused; the invariant handler therefore never lowers a cap.
 - R7: a cap change applies to the current period immediately, and schedules count toward the
   same per-pot cap as signed requests.
 - R9: a schedule pays at most one period per call and only the period that is current at call

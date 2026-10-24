@@ -17,7 +17,7 @@ import {PaymentRequest} from "../src/libraries/PaymentRequests.sol";
 contract ForkSmoke is Script {
     address internal constant _MUSD = 0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503;
     address internal constant _DEMO_HOLDER = 0x99BD4BDD7A9c22E2a35F09A6Bd17f038D5E5eB87;
-    address internal constant _RELAYER = 0x657f1cabE177f15A275A2Fd99972B690f80e8573;
+    address internal constant _RELAYER = 0x1466F9EB70B79d2b36af7A4A31c45AD9AC861b54;
     uint256 internal constant _FEE = 5e16; // 0.05 MUSD demo fee
 
     error SmokeFailed(string what);
