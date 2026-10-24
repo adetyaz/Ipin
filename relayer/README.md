@@ -67,4 +67,9 @@ Deploy the whole repo, because the relayer imports `packages/shared` and reads
 
 ```sh
 pnpm --filter relayer test   # vitest, no network (fake chain + mocked JSON-RPC)
+
+# end to end on a local anvil (chain id 31611): deploy, request, approve,
+# execute, replay refused, schedule. Needs Foundry on PATH.
+export PATH="$HOME/.foundry/bin:$PATH"
+pnpm --filter relayer test:anvil
 ```
