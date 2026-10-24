@@ -20,13 +20,42 @@ same commit as the code, and tell the other owners.
 
 `packages/shared` loads it, so the relayer and app need no hand-copied addresses. Before the
 first deploy the file doesn't exist; the code must fail with a clear "not deployed yet" message
-rather than crash. ABIs come from `contracts/abi/*.json` (exported by a pnpm script).
+rather than crash. ABIs come from `contracts/abi/*.json` (exported by `pnpm abi`).
+
+Wave 1 deploys **one** contract, `Vault`, which is both the pots ledger and the policy engine
+(ADR-013, single PolicyEngine; one contract means no cross-contract trust on the money path).
+So `pots` and `policyEngine` hold the **same address**. Use `contracts/abi/Vault.json` (full ABI) for everything; `IPots.json` and `IPolicyEngine.json` are the same functions split by
+concern. Source of truth for signatures and NatSpec: `contracts/src/interfaces/`.
 
 ## 2. Item hash (app ↔ contracts)
 
 `itemHash = keccak256(abi.encode(string item, uint256 quantity, uint256 unitPrice, string vendor))`.
 `unitPrice` is in MUSD base units (18 dp). `packages/shared` exports `itemHash()` with a test that
-matches a vector produced by a Foundry test.
+matches a vector produced by a Foundry test. The contract also exposes `itemHash(...)` as a pure view.
+
+Test vector (`contracts/test/PaymentRequest.t.sol`, `test_PaymentRequest_itemHashMatchesVector`):
+
+```text
+itemHash("Cement bag 50kg", 200, 9000000000000000000, "Vendor Y")
+  = 0x0ed8f4ca6b571e726131a47e8f2ed5ef66614bd6ddde8109e3539970fd86bedc
+```
+
+viem: `keccak256(encodeAbiParameters(parseAbiParameters("string, uint256, uint256, string"),
+[item, quantity, unitPrice, vendor]))`.
+
+## 2a. PaymentRequest (EIP-712, app signs, relayer submits)
+
+Domain: `{ name: "Ipin", version: "1", chainId: 31611, verifyingContract: <Vault> }`.
+
+```text
+PaymentRequest(uint256 potId,address payee,uint256 amount,bytes32 itemHash,uint256 nonce,uint256 expiry)
+```
+
+- `amount = quantity * unitPrice`; the flat fee (`fee()`, 0.25 MUSD) is charged on top from the
+  same pot and does not count toward the cap.
+- `nonce`: any unused uint256 in the sender's namespace (`nonceUsed(sender, nonce)`); use a random
+  256-bit value. `expiry`: unix seconds, inclusive.
+- Submit with `execute(request, signature)`. `hashPaymentRequest(request)` returns the digest.
 
 ## 3. Relayer HTTP API (relayer ↔ app)
 

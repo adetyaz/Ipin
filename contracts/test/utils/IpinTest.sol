@@ -26,7 +26,7 @@ abstract contract IpinTest is Test {
 
     function _createPot(address owner, uint256 cap) internal returns (uint256 potId) {
         vm.prank(owner);
-        potId = _vault.createPot(cap);
+        potId = _vault.createPot("House", cap);
     }
 
     function _singleSplit(address owner, uint256 potId) internal returns (uint256 splitId) {

@@ -49,10 +49,11 @@ abstract contract Pots is IPots, ReentrancyGuard {
     // --- Pots and splits ---
 
     /// @inheritdoc IPots
-    function createPot(uint256 _cap) external returns (uint256 potId) {
+    function createPot(bytes32 _name, uint256 _cap) external returns (uint256 potId) {
         potId = ++potCount;
-        _pots[potId] = Pot({owner: msg.sender, createdAt: SafeCast.toUint64(block.timestamp), balance: 0, cap: _cap});
-        emit PotCreated(potId, msg.sender, _cap);
+        _pots[potId] =
+            Pot({owner: msg.sender, createdAt: SafeCast.toUint64(block.timestamp), name: _name, balance: 0, cap: _cap});
+        emit PotCreated(potId, msg.sender, _name, _cap);
     }
 
     /// @inheritdoc IPots

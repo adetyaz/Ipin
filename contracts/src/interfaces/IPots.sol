@@ -8,11 +8,14 @@ interface IPots {
     /// @param owner The pot's sender: the only address that configures it or
     ///        signs its requests.
     /// @param createdAt Start of period 0 (R7, ADR-003).
+    /// @param name Display label chosen by the sender, e.g. "House" or
+    ///        "Upkeep" (UTF-8, right-padded with zeros to 32 bytes).
     /// @param balance Spendable MUSD base units.
     /// @param cap Spending cap per period, MUSD base units (R7).
     struct Pot {
         address owner;
         uint64 createdAt;
+        bytes32 name;
         uint256 balance;
         uint256 cap;
     }
@@ -31,7 +34,7 @@ interface IPots {
 
     // --- Events ---
 
-    event PotCreated(uint256 indexed potId, address indexed owner, uint256 cap);
+    event PotCreated(uint256 indexed potId, address indexed owner, bytes32 name, uint256 cap);
     event SplitCreated(
         uint256 indexed splitId, address indexed owner, uint256[] potIds, uint16[] bps, uint256 remainderPotId
     );
@@ -63,9 +66,10 @@ interface IPots {
     /// @notice Create a pot owned by the caller (the sender).
     /// @dev R7: `_cap` limits spending per period; 0 means nothing can leave
     ///      until it is raised.
+    /// @param _name Display label, e.g. "House" (UTF-8, zero-padded bytes32).
     /// @param _cap Spending cap per period, MUSD base units.
     /// @return potId The new pot id (starts at 1).
-    function createPot(uint256 _cap) external returns (uint256 potId);
+    function createPot(bytes32 _name, uint256 _cap) external returns (uint256 potId);
 
     /// @notice Create a split rule over the caller's pots.
     /// @dev R2: weights are basis points, each > 0, summing to exactly 10_000;
@@ -104,6 +108,10 @@ interface IPots {
     /// @param _potId Pot id.
     /// @return MUSD base units.
     function potBalance(uint256 _potId) external view returns (uint256);
+
+    /// @notice Number of pots created; pot ids run 1..potCount.
+    /// @return The pot count.
+    function potCount() external view returns (uint256);
 
     /// @notice Full pot record.
     /// @param _potId Pot id.

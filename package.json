@@ -14,7 +14,8 @@
     "fmt": "cd contracts && forge fmt",
     "fmt:check": "cd contracts && forge fmt --check",
     "lint": "node scripts/check-pragma.mjs && solhint --max-warnings 0 \"contracts/src/**/*.sol\" \"contracts/test/**/*.sol\" \"contracts/script/**/*.sol\"",
-    "check": "pnpm fmt:check && pnpm lint && pnpm test"
+    "check": "pnpm fmt:check && pnpm lint && pnpm test",
+    "abi": "cd contracts && forge build && cd .. && node scripts/export-abi.mjs"
   },
   "devDependencies": {
     "cross-env": "^10.1.0",
