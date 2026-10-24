@@ -161,10 +161,12 @@
 {#if joined}
   <div class="layout">
     <header class="pot">
-      <div class="cloth"><AdireSwatch seed={potName ?? joined.potId} /></div>
+      <div class="cloth">
+        <AdireSwatch seed={potName ?? joined.potName ?? joined.potId} />
+      </div>
       <div>
         <p class="eyebrow">You ask as {joined.label}</p>
-        <h1>{potName ?? `Pot #${joined.potId}`}</h1>
+        <h1>{potName ?? joined.potName ?? `Pot #${joined.potId}`}</h1>
         {#if remaining !== null}
           <p class="muted small">
             Up to <strong>{formatUsd(remaining)}</strong> can be approved right now.
@@ -210,7 +212,7 @@
           <input
             id="item"
             bind:value={form.item}
-            placeholder="Cement bag 50kg"
+            placeholder="e.g. Cement bag 50kg"
             autocomplete="off"
             aria-invalid={!!errors.item}
             aria-describedby={errors.item ? "item-err" : undefined}
@@ -225,7 +227,7 @@
               id="qty"
               bind:value={form.quantity}
               inputmode="numeric"
-              placeholder="5"
+              placeholder="e.g. 5"
               aria-invalid={!!errors.quantity}
               aria-describedby={errors.quantity ? "qty-err" : undefined}
             />
@@ -241,7 +243,7 @@
                 id="price"
                 bind:value={form.unitPrice}
                 inputmode="decimal"
-                placeholder="1.00"
+                placeholder="e.g. 1.00"
                 aria-invalid={!!errors.unitPrice}
                 aria-describedby={errors.unitPrice ? "price-err" : undefined}
               />
@@ -257,7 +259,11 @@
           aria-describedby={errors.payee ? "payee-err" : undefined}
         >
           <legend>Who gets paid?</legend>
-          {#if payees === null}
+          {#if deployment.status !== "deployed"}
+            <p class="muted small">
+              The sender's approved vendors appear here once Ìpín is deployed.
+            </p>
+          {:else if payees === null}
             <p class="muted small">Loading the approved vendors…</p>
           {:else if payees.length === 0}
             <p class="empty">
@@ -289,7 +295,7 @@
           <input
             id="vendor"
             bind:value={form.vendor}
-            placeholder="Vendor Y"
+            placeholder="e.g. Vendor Y"
             autocomplete="off"
             aria-invalid={!!errors.vendor}
             aria-describedby={errors.vendor ? "vendor-err" : "vendor-hint"}
@@ -311,7 +317,7 @@
             id="note"
             bind:value={form.note}
             rows="2"
-            placeholder="For the foundation, second row"
+            placeholder="e.g. For the foundation, second row"
           ></textarea>
           {#if errors.note}<p class="err">{errors.note}</p>{/if}
         </div>

@@ -12,7 +12,8 @@
     let h = 2166136261
     for (const ch of s) {
       h ^= ch.codePointAt(0) ?? 0
-      h = (h * 16777619) >>> 0
+      // FNV-1a multiply by 16777619, as shift-adds so it stays exact in 32 bits.
+      h = (h + (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)) >>> 0
     }
     return h
   }
@@ -22,13 +23,8 @@
   const tilt = $derived([0, 45, 0, 90, 0][(h >>> 3) % 5] ?? 0)
 </script>
 
-<svg
-  class="swatch {className}"
-  viewBox="0 0 96 96"
-  preserveAspectRatio="xMidYMid slice"
-  aria-hidden="true"
-  focusable="false"
->
+<!-- No viewBox: the 24px tile stays the same size on every element, like cloth. -->
+<svg class="swatch {className}" aria-hidden="true" focusable="false">
   <defs>
     <pattern
       id="p-{uid}"
@@ -94,8 +90,8 @@
       {/if}
     </pattern>
   </defs>
-  <rect width="96" height="96" class="field" />
-  <rect width="96" height="96" fill="url(#p-{uid})" />
+  <rect width="100%" height="100%" class="field" />
+  <rect width="100%" height="100%" fill="url(#p-{uid})" />
 </svg>
 
 <style>

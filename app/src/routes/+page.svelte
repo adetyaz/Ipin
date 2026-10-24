@@ -273,7 +273,13 @@
 
   .how {
     margin-top: var(--space-7);
-    max-width: 40rem;
+  }
+  @media (min-width: 900px) {
+    .how ol {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-5);
+    }
   }
   .how h2 {
     font-size: var(--text-xl);
