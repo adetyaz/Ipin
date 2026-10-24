@@ -28,8 +28,15 @@ export class RelayerError extends Error {
   constructor(
     readonly code: string,
     message: string,
+    /** The relayer's own message (e.g. a revert reason), kept for matching. */
+    readonly detail: string = message,
   ) {
     super(message)
+  }
+
+  /** The contract said this approval's nonce is spent: settled or cancelled. */
+  get nonceUsed(): boolean {
+    return /NonceAlreadyUsed/.test(this.detail)
   }
 }
 
@@ -80,10 +87,9 @@ async function call<T>(
   if (!res.ok) {
     const parsed = errorResponseSchema.safeParse(json)
     const code = parsed.success ? parsed.data.error.code : `HTTP_${res.status}`
-    const message =
-      FRIENDLY[code] ??
-      (parsed.success ? parsed.data.error.message : "Something went wrong.")
-    throw new RelayerError(code, message)
+    const detail = parsed.success ? parsed.data.error.message : ""
+    const message = FRIENDLY[code] ?? (detail || "Something went wrong.")
+    throw new RelayerError(code, message, detail)
   }
   const parsed = schema.safeParse(json)
   if (!parsed.success) {

@@ -14,19 +14,27 @@
   } from "@ipin/shared"
   import type { Address, Hex } from "viem"
 
-  import { relayer } from "#/api/relayer"
+  import { relayer, RelayerError } from "#/api/relayer"
   import { explorer, publicClient } from "#/chain/client"
   import { requireDeployments } from "#/chain/deployment"
-  import type { PotView } from "#/chain/vault"
+  import { isNonceUsed, type PotView, vaultWrites } from "#/chain/vault"
   import { wallet } from "#/chain/wallet.svelte"
   import { formatUsd } from "#/money/format"
-  import { payeeLabel } from "#/storage"
+  import {
+    forgetSignedApproval,
+    payeeLabel,
+    rememberSignedApproval,
+    type SignedApproval,
+    signedApproval,
+  } from "#/storage"
   import { formatWhen, nowSeconds, shortAddress } from "#/text"
   import Button from "#/ui/Button.svelte"
   import { Flow } from "#/ui/flow.svelte"
   import Notice from "#/ui/Notice.svelte"
   import StatusPill from "#/ui/StatusPill.svelte"
   import Steps from "#/ui/Steps.svelte"
+
+  import { approvalExpiry } from "./approval"
 
   let {
     request,
@@ -42,10 +50,22 @@
     onchange: () => void
   } = $props()
 
-  const APPROVAL_TTL = 60n * 60n // the signature is valid for one hour (R3)
-
   const flow = new Flow()
   let paidTx = $state<Hex | null>(null)
+  // An approval signed here but not (yet) settled; cancellable on-chain (M-01).
+  let stored = $state<SignedApproval | undefined>(undefined)
+  // The nonce turned out spent: paid or cancelled elsewhere. Not an error.
+  let spentElsewhere = $state(false)
+
+  $effect(() => {
+    const saved = signedApproval(request.id)
+    if (request.status === "executed" && saved) {
+      forgetSignedApproval(request.id)
+      stored = undefined
+    } else {
+      stored = saved
+    }
+  })
 
   const computedHash = $derived(
     itemHash(request.item, request.quantity, request.unitPrice, request.vendor),
@@ -74,7 +94,7 @@
       amount: request.amount,
       itemHash: request.itemHash,
       nonce: randomNonce(),
-      expiry: nowSeconds() + APPROVAL_TTL,
+      expiry: approvalExpiry(nowSeconds()), // at most 7 days (L-02)
     }
     let signature: Hex | null = null
     const ok = await flow.run([
@@ -90,6 +110,13 @@
               message,
             ),
           })
+          const record = {
+            requestId: request.id,
+            nonce: message.nonce.toString(),
+            expiry: message.expiry.toString(),
+          }
+          rememberSignedApproval(record)
+          stored = record
         },
       },
       {
@@ -97,14 +124,26 @@
         hint: "The relayer sends it on Mezo and pays the gas",
         run: async () => {
           if (!signature) throw new Error("No signature.")
-          const { txHash } = await relayer.approve(
-            request.id,
-            message,
-            signature,
-          )
-          await publicClient.waitForTransactionReceipt({ hash: txHash })
-          paidTx = txHash
-          return txHash
+          try {
+            const { txHash } = await relayer.approve(
+              request.id,
+              message,
+              signature,
+            )
+            await publicClient.waitForTransactionReceipt({ hash: txHash })
+            paidTx = txHash
+            forgetSignedApproval(request.id)
+            stored = undefined
+            return txHash
+          } catch (err) {
+            if (err instanceof RelayerError && err.nonceUsed) {
+              spentElsewhere = true
+              forgetSignedApproval(request.id)
+              stored = undefined
+              return null
+            }
+            throw err
+          }
         },
       },
     ])
@@ -129,7 +168,38 @@
     if (ok) onchange()
   }
 
+  /** Kill a signed approval the relayer never submitted (invalidateNonce). */
+  async function cancelApproval() {
+    const approval = stored
+    if (!approval) return
+    const ok = await flow.run([
+      {
+        label: "Cancel your signed approval",
+        hint: "Confirm in MetaMask. This makes the signature useless.",
+        run: async () => {
+          try {
+            return await vaultWrites.invalidateNonce(BigInt(approval.nonce))
+          } catch (err) {
+            if (isNonceUsed(err)) {
+              spentElsewhere = true
+              return null
+            }
+            throw err
+          }
+        },
+      },
+    ])
+    if (ok) {
+      forgetSignedApproval(request.id)
+      stored = undefined
+      onchange()
+    }
+  }
+
   const txHash = $derived(paidTx ?? request.txHash ?? null)
+  const canCancel = $derived(
+    !!stored && !paidTx && !spentElsewhere && request.status !== "executed",
+  )
 </script>
 
 <article class="req" class:pending={request.status === "pending"}>
@@ -215,13 +285,26 @@
 
   <Steps {flow} />
 
+  {#if spentElsewhere}
+    <Notice tone="info" title="Already settled or cancelled">
+      This approval was already used or cancelled, so nothing more can be paid
+      with it. Check the statement for the payment.
+    </Notice>
+  {:else if canCancel && !flow.running}
+    <Notice tone="warn" title="Your approval is signed but not paid">
+      If the relayer can't send it, cancel it so the signature can never be
+      used. It also expires on its own within the hour.
+    </Notice>
+    <Button variant="danger" onclick={cancelApproval}>Cancel approval</Button>
+  {/if}
+
   {#if txHash}
     <a class="tx" href={explorer.tx(txHash)} target="_blank" rel="noreferrer"
       >See the payment on Mezo explorer</a
     >
   {/if}
 
-  {#if request.status === "pending" && !paidTx && !flow.done}
+  {#if request.status === "pending" && !paidTx && !flow.done && !stored && !spentElsewhere}
     <div class="actions">
       <Button variant="danger" onclick={reject} disabled={flow.running}
         >Decline</Button

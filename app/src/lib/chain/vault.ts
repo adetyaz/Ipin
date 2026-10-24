@@ -450,6 +450,8 @@ export const vaultWrites = {
     interval: bigint,
   ) => send("createSchedule", [potId, payee, amount, start, interval]),
   cancelSchedule: (id: bigint) => send("cancelSchedule", [id]),
+  /** Cancel a signed approval that was never submitted (M-01). */
+  invalidateNonce: (nonce: bigint) => send("invalidateNonce", [nonce]),
 }
 
 /** Approve the Vault to pull `amount` MUSD for a deposit, if needed. */
@@ -523,7 +525,7 @@ const REVERT_MESSAGES: Record<string, string> = {
   AddressIsPayee:
     "That address is a payee of this pot, so it can't ask for money from it.",
   RequestExpired: "This approval expired. Approve it again.",
-  NonceAlreadyUsed: "This request was already paid.",
+  NonceAlreadyUsed: "This approval was already paid or cancelled.",
   InvalidSignature: "The approval signature didn't match the pot owner.",
   CapExceeded: "This would go over the pot's monthly limit.",
   InsufficientPotBalance:
@@ -535,6 +537,20 @@ const REVERT_MESSAGES: Record<string, string> = {
   ERC20InsufficientBalance: "Your wallet doesn't have enough MUSD.",
   ERC20InsufficientAllowance:
     "The vault isn't allowed to take that much MUSD yet.",
+}
+
+/** True when a failure means the approval's nonce is spent: settled or cancelled. */
+export function isNonceUsed(err: unknown): boolean {
+  if (err instanceof BaseError) {
+    const revert = err.walk((e) => e instanceof ContractFunctionRevertedError)
+    if (
+      revert instanceof ContractFunctionRevertedError &&
+      revert.data?.errorName === "NonceAlreadyUsed"
+    ) {
+      return true
+    }
+  }
+  return err instanceof Error && /NonceAlreadyUsed/.test(err.message)
 }
 
 export function txErrorMessage(err: unknown): string {

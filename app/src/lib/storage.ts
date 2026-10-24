@@ -110,3 +110,37 @@ export function decodePayeeNames(hash: string): Record<string, string> {
     return {}
   }
 }
+
+// ---- Sender: approvals signed on this device (M-01) ----
+// If the relayer never submits a signed approval, the sender can cancel it
+// on-chain with invalidateNonce(nonce). Kept until settled or cancelled.
+
+export interface SignedApproval {
+  requestId: string
+  nonce: string
+  expiry: string
+}
+
+const SIGNED = "ipin:signed-approvals"
+
+export function signedApproval(requestId: string): SignedApproval | undefined {
+  return (readJson<SignedApproval[]>(SIGNED) ?? []).find(
+    (a) => a.requestId === requestId,
+  )
+}
+
+export function rememberSignedApproval(a: SignedApproval): void {
+  const rest = (readJson<SignedApproval[]>(SIGNED) ?? []).filter(
+    (x) => x.requestId !== a.requestId,
+  )
+  writeJson(SIGNED, [a, ...rest])
+}
+
+export function forgetSignedApproval(requestId: string): void {
+  writeJson(
+    SIGNED,
+    (readJson<SignedApproval[]>(SIGNED) ?? []).filter(
+      (x) => x.requestId !== requestId,
+    ),
+  )
+}
