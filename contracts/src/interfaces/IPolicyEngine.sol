@@ -64,6 +64,8 @@ interface IPolicyEngine {
     // --- Errors ---
 
     error ZeroAddress();
+    /// @notice A payee must be a non-zero address other than the vault.
+    error InvalidPayee(address payee);
     error PayeeAlreadyApproved(uint256 potId, address payee);
     error PayeeNotApproved(uint256 potId, address payee);
     error RequesterAlreadyRegistered(uint256 potId, address requester);
@@ -84,6 +86,8 @@ interface IPolicyEngine {
     error ScheduleNotDue(uint256 scheduleId, uint256 nextDue, uint256 timestamp);
     error IntervalZero();
     error NoFeesToWithdraw();
+    /// @notice The constructor fee must satisfy 0 < fee <= 1 MUSD.
+    error FeeOutOfRange(uint256 fee);
 
     // --- Functions ---
 

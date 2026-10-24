@@ -905,6 +905,17 @@
   },
   {
     "type": "error",
+    "name": "FeeOutOfRange",
+    "inputs": [
+      {
+        "name": "fee",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "InsufficientPotBalance",
     "inputs": [
       {
@@ -928,6 +939,17 @@
     "type": "error",
     "name": "IntervalZero",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidPayee",
+    "inputs": [
+      {
+        "name": "payee",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",

@@ -137,9 +137,9 @@ abstract contract Pots is IPots, ReentrancyGuard {
     }
 
     /// @inheritdoc IPots
-    /// @dev Σ pot balances + Σ pot savings.
+    /// @dev Σ pot balances + Σ pot savings + unclaimed fees.
     function totalLiabilities() public view returns (uint256) {
-        return totalPotBalance + _totalSaved();
+        return totalPotBalance + _totalSaved() + _feeLiability();
     }
 
     /// @inheritdoc IPots
@@ -195,6 +195,9 @@ abstract contract Pots is IPots, ReentrancyGuard {
         if (owner == address(0)) revert PotNotFound(_potId);
         if (owner != msg.sender) revert NotPotOwner(_potId, msg.sender);
     }
+
+    /// @dev Fees charged but not yet withdrawn (R4); set by the PolicyEngine.
+    function _feeLiability() internal view virtual returns (uint256);
 
     /// @dev R10 seam (not implemented in this wave): the vault's sMUSD balance,
     ///      which is 1:1 with MUSD principal.

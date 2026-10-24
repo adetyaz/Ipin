@@ -119,7 +119,7 @@ contract PotsTest is IpinTest {
         uint256 potId = _createPot(holder, 0);
         uint256 splitId = _singleSplit(holder, potId);
         uint256 amount = 40e18;
-        uint256 deadline = block.timestamp + 1 hours;
+        uint256 deadline = vm.getBlockTimestamp() + 1 hours;
         bytes32 structHash = keccak256(abi.encode(_PERMIT_TYPEHASH, holder, address(_vault), amount, 0, deadline));
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", _musd.DOMAIN_SEPARATOR(), structHash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(key, digest);

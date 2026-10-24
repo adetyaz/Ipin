@@ -22,7 +22,7 @@ contract MockMUSDTest is Test {
         (address owner, uint256 key) = makeAddrAndKey("owner");
         address spender = makeAddr("spender");
         uint256 value = 5e18;
-        uint256 deadline = block.timestamp + 1 hours;
+        uint256 deadline = vm.getBlockTimestamp() + 1 hours;
         bytes32 structHash = keccak256(abi.encode(_PERMIT_TYPEHASH, owner, spender, value, 0, deadline));
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", _musd.DOMAIN_SEPARATOR(), structHash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(key, digest);

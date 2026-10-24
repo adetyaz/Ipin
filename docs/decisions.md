@@ -124,3 +124,26 @@ don't build anything that depends on it) · **superseded**. Append new entries; 
   `SafeCast.toUint64` for `createdAt`, deposits restructured so all external calls (permit,
   `transferFrom`) come after state changes and events, and the unused `_totalPending` /
   `_unclaimedFees` lines removed until R4/R5 add them with their tests.
+
+## ADR-015 Wave 1 payouts are synchronous; R5 pending is Wave 2
+- Status: proposed (2026-10-24, contracts agent, per the coordinator's brief)
+- Decision: every Wave 1 payout is a direct MUSD transfer from the vault to an approved payee in
+  the same transaction as the policy checks. There is no pending state and no refund function.
+  If the transfer fails, the whole call reverts: pot balance, fee, cap headroom and nonce are all
+  unchanged (`test_R6_failedPayoutRevertsAtomically` is the R6 Wave 1 test).
+- Consequences: R5 and the async half of R6 (provider timeouts, late reversals, ADR-007's
+  VTpass flow) move to Wave 2 along with async adapters. `IPayeeAdapter` stays unused.
+
+## ADR-016 One Vault contract; immutable relayer and bounded fee
+- Status: proposed (2026-10-24, contracts agent)
+- Decision: `Vault is PolicyEngine is Pots` is deployed as one contract that implements `IPots`
+  and `IPolicyEngine`, so `deployments/*.json` lists the same address for `pots` and
+  `policyEngine` (docs/api.md). Fees accrue to `unclaimedFees` (an I1 liability) and
+  `claimFees()`, callable by anyone, pays them to the immutable `relayerAddress`. The fee is a
+  constructor parameter with `0 < fee <= 1e18` (deploy reads `FEE_AMOUNT`, default ADR-002's
+  0.25 MUSD) so the demo can use a lower fee without a code change.
+- Why: no cross-contract trust on the money path, and the relayer is a liveness dependency only.
+- forge-lint: four inline `forge-lint: disable-next-line` comments in `PolicyEngine.sol`, each with
+  its reason: two `block-timestamp` (R3 expiry and R9 due dates are wall-clock rules) and two
+  `reentrancy-events` (the only earlier external call is SignatureChecker's ERC-1271 staticcall).
+
