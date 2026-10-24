@@ -112,3 +112,15 @@ don't build anything that depends on it) · **superseded**. Append new entries; 
   before the deadline. Pluggable policies move to Wave 2.
 - Follow-up: CODING_STANDARDS S15 ("one policy = one contract implementing `IPolicy`") and the
   README's "policy plug-ins" wording still describe the old plan; update them with their owners.
+
+## ADR-014 forge lint: `require-revert-in-loop` off
+- Status: accepted (2026-10-24, convention change per CLAUDE.md rule 6). Set in
+  `contracts/foundry.toml` `[lint] exclude_lints`.
+- Why: the rule targets loops where one bad item blocks unrelated work. Our loops validate bounded
+  input (at most `MAX_SPLIT_POTS`) where reverting the whole call on the first bad entry, with a
+  precise error, is the rule itself (R2). Collecting errors and reverting after the loop would lose
+  which entry failed.
+- The other forge-lint findings in `Pots.sol` were fixed in code: explicit local initializers,
+  `SafeCast.toUint64` for `createdAt`, deposits restructured so all external calls (permit,
+  `transferFrom`) come after state changes and events, and the unused `_totalPending` /
+  `_unclaimedFees` lines removed until R4/R5 add them with their tests.

@@ -5,6 +5,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 /// @title Pots
 /// @notice Pots, split rules, deposits and the books (I1). Holds all pot MUSD. Money only enters
@@ -41,10 +42,9 @@ abstract contract Pots is ReentrancyGuard {
     /// @notice The MUSD token (18 decimals).
     IERC20 public immutable musd;
 
-    /// @dev Ledger lines of I1. Every change to a pot balance, pending or fees goes through them.
+    /// @dev Ledger line of I1. Every change to a pot balance goes through it. Pending (R5) and
+    ///      unclaimed fees (R4) become ledger lines when settlement lands.
     uint256 internal _totalPotBalance;
-    uint256 internal _totalPending;
-    uint256 internal _unclaimedFees;
 
     uint256 private _potCount;
     uint256 private _splitCount;
@@ -90,7 +90,7 @@ abstract contract Pots is ReentrancyGuard {
     /// @return potId The new pot id (starts at 1).
     function createPot(uint256 cap) external returns (uint256 potId) {
         potId = ++_potCount;
-        _pots[potId] = Pot({owner: msg.sender, createdAt: uint64(block.timestamp), balance: 0, cap: cap});
+        _pots[potId] = Pot({owner: msg.sender, createdAt: SafeCast.toUint64(block.timestamp), balance: 0, cap: cap});
         emit PotCreated(potId, msg.sender, cap);
     }
 
@@ -108,8 +108,8 @@ abstract contract Pots is ReentrancyGuard {
         uint256 n = potIds.length;
         if (n == 0 || n > MAX_SPLIT_POTS) revert SplitLengthInvalid(n, MAX_SPLIT_POTS);
         if (bps.length != n) revert SplitArrayMismatch(n, bps.length);
-        uint256 sum;
-        bool remainderListed;
+        uint256 sum = 0;
+        bool remainderListed = false;
         for (uint256 i = 0; i < n; ++i) {
             uint256 potId = potIds[i];
             _requirePotOwner(potId);
@@ -133,7 +133,8 @@ abstract contract Pots is ReentrancyGuard {
     /// @param splitId Split rule to apply.
     /// @param amount MUSD base units.
     function deposit(uint256 splitId, uint256 amount) external nonReentrant {
-        _deposit(splitId, amount);
+        _creditDeposit(splitId, amount);
+        musd.safeTransferFrom(msg.sender, address(this), amount);
     }
 
     /// @notice Deposit MUSD using an EIP-2612 permit instead of a prior approval.
@@ -149,12 +150,14 @@ abstract contract Pots is ReentrancyGuard {
         external
         nonReentrant
     {
-        // Skip the permit if the allowance already covers the deposit (e.g. the permit was
-        // front-run and already used); otherwise a bad permit reverts here.
+        _creditDeposit(splitId, amount);
+        // Interactions last (CEI). Skip the permit if the allowance already covers the deposit
+        // (e.g. the permit was front-run and already used); otherwise a bad permit reverts the
+        // whole deposit, credits included.
         if (musd.allowance(msg.sender, address(this)) < amount) {
             IERC20Permit(address(musd)).permit(msg.sender, address(this), amount, deadline, v, r, s);
         }
-        _deposit(splitId, amount);
+        musd.safeTransferFrom(msg.sender, address(this), amount);
     }
 
     /// @notice Spendable balance of a pot.
@@ -178,23 +181,11 @@ abstract contract Pots is ReentrancyGuard {
         return _splits[splitId];
     }
 
-    /// @notice Unclaimed relayer fees (R4).
-    /// @return MUSD base units.
-    function unclaimedFees() external view returns (uint256) {
-        return _unclaimedFees;
-    }
-
-    /// @notice Sum of pending payouts, amount + fee (R5).
-    /// @return MUSD base units.
-    function totalPending() external view returns (uint256) {
-        return _totalPending;
-    }
-
     /// @notice I1: every liability is backed by an asset the vault holds.
     /// @dev Assets = MUSD held + savings principal (sMUSD is 1:1 with principal). Liabilities =
-    ///      Σ pot balances + Σ pot savings + Σ pending + unclaimed fees. Assets above liabilities
-    ///      are an explicit surplus line ({surplus}), owed to no pot: MUSD sent to the vault
-    ///      without `deposit`, and later realized savings yield. See docs/money-rules.md I1.
+    ///      Σ pot balances + Σ pot savings (+ Σ pending + unclaimed fees once R4/R5 land). Assets
+    ///      above liabilities are an explicit surplus line ({surplus}), owed to no pot: MUSD sent to
+    ///      the vault without `deposit`, and later realized savings yield. See docs/money-rules.md I1.
     /// @return True iff assets >= liabilities.
     function booksBalance() public view returns (bool) {
         return totalAssets() >= totalLiabilities();
@@ -206,10 +197,11 @@ abstract contract Pots is ReentrancyGuard {
         return musd.balanceOf(address(this)) + _savingsPrincipal();
     }
 
-    /// @notice Everything the vault owes: pots, pot savings, pending payouts, unclaimed fees.
+    /// @notice Everything the vault owes: pots and pot savings. Pending payouts (R5) and unclaimed
+    ///      fees (R4) are added here when settlement lands.
     /// @return MUSD base units.
     function totalLiabilities() public view returns (uint256) {
-        return _totalPotBalance + _totalSaved() + _totalPending + _unclaimedFees;
+        return _totalPotBalance + _totalSaved();
     }
 
     /// @notice Unallocated surplus: assets the vault holds that no ledger line owes (I1).
@@ -220,7 +212,9 @@ abstract contract Pots is ReentrancyGuard {
         return assets > liabilities ? assets - liabilities : 0;
     }
 
-    function _deposit(uint256 splitId, uint256 amount) internal {
+    /// @dev Checks and effects of a deposit (R1, R2, I2). The caller must then pull `amount` MUSD
+    ///      from `msg.sender`; the transfer reverting undoes the credits.
+    function _creditDeposit(uint256 splitId, uint256 amount) internal {
         Split storage split = _splits[splitId];
         if (split.owner == address(0)) revert SplitNotFound(splitId);
         if (split.owner != msg.sender) revert NotSplitOwner(splitId, msg.sender);
@@ -229,7 +223,7 @@ abstract contract Pots is ReentrancyGuard {
         uint256 depositId = ++_depositCount;
         uint256 n = split.potIds.length;
         uint256[] memory pieces = new uint256[](n);
-        uint256 credited;
+        uint256 credited = 0;
         for (uint256 i = 0; i < n; ++i) {
             pieces[i] = amount * split.bps[i] / BPS_TOTAL; // rounds down; remainder handled below
             credited += pieces[i];
@@ -249,8 +243,6 @@ abstract contract Pots is ReentrancyGuard {
             emit PotCredited(potId, depositId, credit);
         }
         _totalPotBalance += amount;
-
-        musd.safeTransferFrom(msg.sender, address(this), amount);
     }
 
     function _requirePotOwner(uint256 potId) internal view {
