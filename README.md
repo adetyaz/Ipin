@@ -12,7 +12,7 @@ Full plan with diagrams: https://claude.ai/code/artifact/105aeb55-658d-427b-be6e
 
 ## Start here (for whoever picks this up next)
 
-Status: **planning done, no code yet.**
+Status: **building Wave 1 (contracts in progress).**
 
 1. Read this whole file. The **Scope** section is the source of truth: nothing from Wave 2 goes into Wave 1.
 2. Follow the order: rules document → failing tests → contracts → relayer → adapters → screens.
