@@ -13,9 +13,12 @@ import {
   createPublicClient,
   createWalletClient,
   defineChain,
+  encodeFunctionData,
   type Hex,
   http,
   maxUint256,
+  parseAbi,
+  parseSignature,
   stringToHex,
 } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
@@ -366,4 +369,116 @@ describe("anvil: scheduler", () => {
     const second = await runSchedulerTick(runtime, logger)
     expect(second?.executed).toEqual([])
   }, 60_000)
+})
+
+describe("anvil: one-transaction setup", () => {
+  it("creates pots, saves the split and deposits with a permit in one multicall", async () => {
+    // anvil's account #3: a new sender with MUSD and no allowance, as in the app.
+    const fresh = privateKeyToAccount(
+      "0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6",
+    )
+    const freshWallet = createWalletClient({
+      chain: anvilChain,
+      transport: http(rpcUrl),
+      account: fresh,
+    })
+    await send(senderWallet.sendTransaction({ to: fresh.address, value: UNIT }))
+    const mock = artifact("MockMUSD")
+    await send(
+      senderWallet.writeContract({
+        address: musd,
+        abi: mock.abi,
+        functionName: "mint",
+        args: [fresh.address, 10n * UNIT],
+      }),
+    )
+    const w = { address: vault, abi: vaultAbi } as const
+    const potCount = await publicClient.readContract({
+      ...w,
+      functionName: "potCount",
+    })
+    const splitCount = await publicClient.readContract({
+      ...w,
+      functionName: "splitCount",
+    })
+    const [house, upkeep] = [potCount + 1n, potCount + 2n]
+    const amount = 10n * UNIT
+    const nonce = await publicClient.readContract({
+      address: musd,
+      abi: parseAbi(["function nonces(address) view returns (uint256)"]),
+      functionName: "nonces",
+      args: [fresh.address],
+    })
+    const deadline = BigInt(Date.now()) / 1000n + 1800n
+    // Same permit and batch as app/src/lib/chain/vault.ts setupInOneTransaction.
+    const { r, s, yParity } = parseSignature(
+      await freshWallet.signTypedData({
+        domain: {
+          name: "Mezo USD",
+          version: "1",
+          chainId: mezoTestnet.id,
+          verifyingContract: musd,
+        },
+        types: {
+          Permit: [
+            { name: "owner", type: "address" },
+            { name: "spender", type: "address" },
+            { name: "value", type: "uint256" },
+            { name: "nonce", type: "uint256" },
+            { name: "deadline", type: "uint256" },
+          ],
+        },
+        primaryType: "Permit",
+        message: {
+          owner: fresh.address,
+          spender: vault,
+          value: amount,
+          nonce,
+          deadline,
+        },
+      }),
+    )
+    const calls = [
+      encodeFunctionData({
+        ...w,
+        functionName: "createPot",
+        args: [stringToHex("House", { size: 32 }), 8n * UNIT],
+      }),
+      encodeFunctionData({
+        ...w,
+        functionName: "createPot",
+        args: [stringToHex("Upkeep", { size: 32 }), 3n * UNIT],
+      }),
+      encodeFunctionData({
+        ...w,
+        functionName: "createSplit",
+        args: [[house, upkeep], [7500, 2500], house],
+      }),
+      encodeFunctionData({
+        ...w,
+        functionName: "depositWithPermit",
+        args: [splitCount + 1n, amount, deadline, yParity + 27, r, s],
+      }),
+    ]
+
+    await send(
+      freshWallet.writeContract({
+        ...w,
+        functionName: "multicall",
+        args: [calls],
+      }),
+    )
+
+    const balance = (id: bigint) =>
+      publicClient.readContract({
+        ...w,
+        functionName: "potBalance",
+        args: [id],
+      })
+    expect(await balance(house)).toBe(75n * 10n ** 17n)
+    expect(await balance(upkeep)).toBe(25n * 10n ** 17n)
+    expect(
+      await publicClient.readContract({ ...w, functionName: "booksBalance" }),
+    ).toBe(true)
+  })
 })

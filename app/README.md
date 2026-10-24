@@ -2,7 +2,8 @@
 
 Phone-first web app (PWA) for the two Wave 1 roles:
 
-- **Sender**: MetaMask on Mezo testnet. Creates pots, splits deposits, approves payees, invites
+- **Sender**: MetaMask on Mezo testnet. Creates pots, saves the split and adds money in one
+  transaction (a free MUSD permit signature, then one `multicall`), approves payees, invites
   requesters, sets a monthly allowance, reads the statement, and approves or declines requests
   with one EIP-712 signature.
 - **Requester**: no wallet and no gas. The invite link generates a key in the browser

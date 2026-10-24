@@ -1,10 +1,8 @@
 <script lang="ts">
   import {
-    approveMusd,
-    newIdFrom,
     potNameError,
     readMusdBalance,
-    vaultWrites,
+    setupInOneTransaction,
   } from "#/chain/vault"
   import { wallet } from "#/chain/wallet.svelte"
   import { formatUsd, parseUsdInput } from "#/money/format"
@@ -30,10 +28,6 @@
   let split = $state<{ total: bigint; plan: SplitPlan } | null>(null)
   let addMoney = $state(true)
   let balance = $state<bigint | null>(null)
-
-  // Remember what's already on-chain so a retry never creates a pot twice.
-  let createdIds = $state<(bigint | undefined)[]>([])
-  let splitId = $state<bigint | null>(null)
 
   const flow = new Flow()
 
@@ -85,51 +79,33 @@
 
   async function submit() {
     if (formError) return
-    const capValues = caps.map((c) => (c.ok ? c.value : 0n))
     const plan = split?.plan
-    const steps = pots.map((p, i) => ({
-      label: `Create the ${p.name.trim()} pot`,
-      hint: "Confirm in MetaMask, then wait a few seconds",
-      run: async () => {
-        if (createdIds[i] !== undefined) return null
-        const hash = await vaultWrites.createPot(p.name, capValues[i] ?? 0n)
-        createdIds[i] = await newIdFrom(hash, "PotCreated")
-        return hash
+    const deposit =
+      addMoney && split && plan && plan.ok
+        ? { bps: plan.bps, restIndex, amount: split.total }
+        : undefined
+    const label =
+      pots.length === 1
+        ? `Create the ${names[0] ?? ""} pot`
+        : `Create ${String(pots.length)} pots`
+    await flow.run([
+      {
+        label: deposit
+          ? `${label}, save the split and add ${formatUsd(deposit.amount)}`
+          : label,
+        hint: deposit
+          ? "MetaMask asks twice: sign the amount (free), then confirm one transaction"
+          : "Confirm one transaction in MetaMask",
+        run: () =>
+          setupInOneTransaction({
+            pots: pots.map((p, i) => ({
+              name: p.name,
+              cap: caps[i]?.ok ? caps[i].value : 0n,
+            })),
+            ...(deposit ? { deposit } : {}),
+          }),
       },
-    }))
-    if (addMoney && split && plan && plan.ok) {
-      const amount = split.total
-      steps.push(
-        {
-          label: "Save how deposits split",
-          hint: "Confirm in MetaMask",
-          run: async () => {
-            if (splitId !== null) return null
-            const ids = createdIds.filter((x): x is bigint => x !== undefined)
-            const rest = ids[restIndex]
-            if (rest === undefined)
-              throw new Error("A pot is missing. Try again.")
-            const hash = await vaultWrites.createSplit(ids, plan.bps, rest)
-            splitId = await newIdFrom(hash, "SplitCreated")
-            return hash
-          },
-        },
-        {
-          label: `Let the vault take ${formatUsd(amount)} MUSD`,
-          hint: "Approve the amount in MetaMask",
-          run: () => approveMusd(amount),
-        },
-        {
-          label: `Add ${formatUsd(amount)} to your pots`,
-          hint: "Confirm in MetaMask",
-          run: async () => {
-            if (splitId === null) throw new Error("The split wasn't saved.")
-            return vaultWrites.deposit(splitId, amount)
-          },
-        },
-      )
-    }
-    await flow.run(steps)
+    ])
   }
 </script>
 
@@ -169,7 +145,6 @@
                   bind:value={pot.name}
                   maxlength="32"
                   placeholder="e.g. School fees"
-                  disabled={createdIds[i] !== undefined}
                   aria-invalid={nameErrors[i] !== null && pot.name !== ""}
                 />
               </label>
@@ -180,12 +155,11 @@
                   <input
                     bind:value={pot.cap}
                     inputmode="decimal"
-                    disabled={createdIds[i] !== undefined}
                     aria-invalid={!caps[i]?.ok}
                   />
                 </span>
               </label>
-              {#if pots.length > 1 && createdIds[i] === undefined}
+              {#if pots.length > 1}
                 <button
                   class="remove"
                   type="button"
@@ -236,8 +210,8 @@
         <Steps {flow} />
         {#if flow.error}
           <Notice tone="error" title="That step didn't go through">
-            Nothing after it happened. Fix it and press the button again; steps
-            already done are skipped.
+            Nothing was created and no money moved: the whole setup is one
+            transaction. Fix it and press the button again.
           </Notice>
         {/if}
         <Button
@@ -258,7 +232,7 @@
           {/if}
         </Button>
         <p class="hint center">
-          Each step asks MetaMask to confirm. Gas is paid in test BTC.
+          One transaction for everything. Gas is paid in test BTC.
         </p>
       </div>
     {/if}

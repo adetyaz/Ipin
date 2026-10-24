@@ -243,6 +243,19 @@ export const vaultAbi = [
   },
   {
     "type": "function",
+    "name": "splitCount",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "surplus",
     "inputs": [],
     "outputs": [

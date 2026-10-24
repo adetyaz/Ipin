@@ -3,12 +3,15 @@ import {
   type Address,
   BaseError,
   ContractFunctionRevertedError,
+  encodeFunctionData,
   type Hex,
   hexToString,
+  parseAbi,
+  parseSignature,
   stringToHex,
 } from "viem"
 
-import { publicClient } from "./client"
+import { chain, publicClient } from "./client"
 import { requireDeployments } from "./deployment"
 import { wallet, walletErrorMessage } from "./wallet.svelte"
 
@@ -452,6 +455,117 @@ export const vaultWrites = {
   cancelSchedule: (id: bigint) => send("cancelSchedule", [id]),
   /** Cancel a signed approval that was never submitted (M-01). */
   invalidateNonce: (nonce: bigint) => send("invalidateNonce", [nonce]),
+}
+
+const musdPermitAbi = parseAbi([
+  "function nonces(address owner) view returns (uint256)",
+])
+
+/**
+ * Sign an EIP-2612 permit letting the Vault pull `amount` MUSD. A signature,
+ * not a transaction: no gas, and it rides inside the setup multicall.
+ */
+async function signMusdPermit(
+  amount: bigint,
+): Promise<{ deadline: bigint; v: number; r: Hex; s: Hex }> {
+  const client = wallet.client()
+  const owner = client.account.address
+  const { musd, vault: spender } = requireDeployments()
+  const nonce = await publicClient.readContract({
+    address: musd,
+    abi: musdPermitAbi,
+    functionName: "nonces",
+    args: [owner],
+  })
+  const deadline = BigInt(Date.now()) / 1000n + 30n * 60n
+  const signature = await client.signTypedData({
+    account: owner,
+    // MUSD's domain (docs/research/mezo.md section 3).
+    domain: {
+      name: "Mezo USD",
+      version: "1",
+      chainId: chain.id,
+      verifyingContract: musd,
+    },
+    types: {
+      Permit: [
+        { name: "owner", type: "address" },
+        { name: "spender", type: "address" },
+        { name: "value", type: "uint256" },
+        { name: "nonce", type: "uint256" },
+        { name: "deadline", type: "uint256" },
+      ],
+    },
+    primaryType: "Permit",
+    message: { owner, spender, value: amount, nonce, deadline },
+  })
+  // uint8 v from the recovery bit (27 or 28), as permit() expects.
+  const { r, s, yParity } = parseSignature(signature)
+  return { deadline, v: yParity + 27, r, s }
+}
+
+export interface SetupPlan {
+  pots: { name: string; cap: bigint }[]
+  /** Present when money is added now: bps per pot, the rest pot's index, total. */
+  deposit?: { bps: bigint[]; restIndex: number; amount: bigint }
+}
+
+/**
+ * The sender's whole setup in ONE transaction (Vault.multicall): create the
+ * pots, save the split and deposit with a permit. Pot and split ids are
+ * predicted from the counters; if someone else creates one first, the batch
+ * reverts as a whole (test_R2_multicallRevertsWhenPredictedPotIdTaken) and
+ * nothing happened, so pressing the button again is safe.
+ */
+export async function setupInOneTransaction(plan: SetupPlan): Promise<Hex> {
+  const address = vault()
+  const [potCount, splitCount] = await Promise.all([
+    publicClient.readContract({
+      address,
+      abi: vaultAbi,
+      functionName: "potCount",
+    }),
+    publicClient.readContract({
+      address,
+      abi: vaultAbi,
+      functionName: "splitCount",
+    }),
+  ])
+  const potIds = plan.pots.map((_, i) => potCount + BigInt(i) + 1n)
+  const calls: Hex[] = plan.pots.map((p) =>
+    encodeFunctionData({
+      abi: vaultAbi,
+      functionName: "createPot",
+      args: [encodePotName(p.name), p.cap],
+    }),
+  )
+  if (plan.deposit) {
+    const { bps, restIndex, amount } = plan.deposit
+    const rest = potIds[restIndex]
+    if (rest === undefined) throw new Error("A pot is missing. Try again.")
+    const permit = await signMusdPermit(amount)
+    calls.push(
+      encodeFunctionData({
+        abi: vaultAbi,
+        functionName: "createSplit",
+        // uint16 weights (<= 10_000, not amounts): viem takes them as numbers.
+        args: [potIds, bps.map((b) => parseInt(b.toString(), 10)), rest],
+      }),
+      encodeFunctionData({
+        abi: vaultAbi,
+        functionName: "depositWithPermit",
+        args: [
+          splitCount + 1n,
+          amount,
+          permit.deadline,
+          permit.v,
+          permit.r,
+          permit.s,
+        ],
+      }),
+    )
+  }
+  return send("multicall", [calls])
 }
 
 /** Approve the Vault to pull `amount` MUSD for a deposit, if needed. */

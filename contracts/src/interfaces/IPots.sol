@@ -113,6 +113,10 @@ interface IPots {
     /// @return The pot count.
     function potCount() external view returns (uint256);
 
+    /// @notice Number of splits created; split ids run 1..splitCount.
+    /// @return The split count.
+    function splitCount() external view returns (uint256);
+
     /// @notice Full pot record.
     /// @param _potId Pot id.
     /// @return The pot (owner is zero if it does not exist).
