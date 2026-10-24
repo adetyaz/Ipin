@@ -13,12 +13,14 @@ reviewers enforce the rest.
 
 ### Naming and layout
 - S4 Contracts/structs/enums/events/errors `CapWords`; functions/variables `mixedCase`; constants
-  `UPPER_SNAKE`; immutables `mixedCase`; private/internal functions and state `_leading`.
+  `UPPER_SNAKE`; immutables `mixedCase`; private/internal functions and state `_leading`;
+  parameters `_leading` (M1).
 - S5 Interfaces start with `I` and live in `src/interfaces/`. Policies in `src/policies/`, payee
   adapters in `src/adapters/`.
 - S6 File order (matches solhint `ordering`, which lint enforces): pragma, imports, `using`, types
   (structs/enums), constants/immutables, state, events, errors, modifiers, constructor, external,
-  public, internal, private, view/pure last within each group.
+  public, internal, private, view/pure last within each group. Events/errors are declared in the
+  contract's interface instead (M3).
 - S7 Custom errors name the failed check and carry the values: `error CapExceeded(uint256 potId,
   uint256 spent, uint256 cap);`. No `require(..., "string")`, no bare `revert()`.
 
@@ -79,3 +81,120 @@ reviewers enforce the rest.
 - X6 No skipped, commented-out or `vm.skip` tests; no `--no-match-test` in scripts to hide failures.
 - X7 Fuzz amounts span 1 wei to large values (`bound(x, 1, 1e30)`), including remainder edge cases.
 - X8 Mocks live in `test/mocks/`, never in `src/`. A mock MUSD has 18 decimals.
+
+## Mezo conventions (from mezo-org/musd)
+
+**Source.** Mezo publishes no code style guide (none at mezo.org/docs/developers or in the
+`mezo-org/documentation` repo). Official, but process only: [mezod CONTRIBUTING.md][contrib].
+[musd CLAUDE.md][mclaude] says "Thesis standards", meaning [solhint-config-thesis][solthesis],
+`@thesis-co/eslint-config` and `@thesis/prettier-config`. Everything else below was **inferred
+from code** in [MUSD.sol][musd], [PCV.sol][pcv], [BorrowerOperations.sol][bo],
+[GovernableVariables.sol][gv], [IMUSD.sol][imusd], [IPCV.sol][ipcv] and [docs/tests.md][tests]
+(read 2026-10-24). A rule marked **Pending config** needs a config edit and an ADR (CLAUDE.md rule 6)
+before lint enforces it. Until then, reviewers enforce it.
+
+### Solidity
+- M1 Function parameters take a leading underscore: `_amount`, `_recipient`, `_potId`. Existing
+  `musd_`-style parameters get renamed the next time their file is changed.
+- M2 State variables are `public` by default, with no hand-written getter for a plain variable.
+  A system contract is stored as its interface type (`IMUSD public musd`). A raw address variable
+  ends in `Address` (`stabilityPoolAddress`).
+- M3 Every contract has an `I<Name>` interface in `src/interfaces/` that declares its events,
+  errors and external functions, in the sections `// --- Events ---`, `// --- Errors ---` and
+  `// --- Functions ---`. The contract inherits it. Events and errors are not declared again in
+  the contract body (this changes S6).
+- M4 Group functions in a contract body with `// --- <Group> ---` dividers (`// --- Governance ---`,
+  `// --- Helper functions ---`). The S6 order applies inside each group.
+- M5 List inherited contracts alphabetically, one per line once the list wraps
+  (`contract PCV is CheckContract, IPCV, Ownable2StepUpgradeable, ...`).
+- M6 Write NatSpec with `///` only. A continuation line is indented to line up with the text after
+  the tag. Each contract has `@title` and `@notice`. S19 still decides how much NatSpec is required.
+- M7 Event names follow the patterns `<Thing>Set`, `<Thing>Added`/`<Thing>Removed` and
+  `<Thing>Withdrawn`. Error names describe the state that blocked the call, as in
+  `AddressHasMintRole` or `AddressWithoutMintRole`. The arguments required by S7 still apply.
+- M8 Access control:
+  - The owner role uses OZ `Ownable2Step`.
+  - Every role check is an `onlyX` modifier (`onlyGovernance`, `onlyWhitelistedRecipient(_r)`).
+    The check is not written inline in the function.
+  - An allowlist is a `mapping(address => bool) public` with an `addToX`/`removeFromX` pair. Each
+    reverts if it would change nothing and emits `XAdded`/`XRemoved`.
+  - A role change is done in two steps behind a time delay (`startChanging…`,
+    `cancelChanging…`, `finalizeChanging…`).
+  - A system-contract address can be set once only, and only to an address that has code. Both
+    checks fail with custom errors.
+  - S13 still limits which powers may exist at all.
+- M9 Formatting matches [prettier-plugin-solidity][prettierrc] defaults: 80-column lines, 4-space
+  indent, double quotes, no bracket spacing. When a function header wraps, the parameters wrap
+  first and the visibility and modifiers sit on the closing `) external onlyOwner {` line.
+  **Pending config:** `foundry.toml` `line_length = 80`, `.solhint.json` `max-line-length` 80, and
+  the forge fmt `multiline_func_header` value closest to that layout.
+- M10 The lint baseline is the [Thesis solhint rules][solthesis] (musd's [.solhint.json][solhint]
+  extends them), run with `--max-warnings 0`. Our config already includes all of them except two:
+  - `max-states-count` limits a contract to 25 state variables.
+  - `not-rely-on-time` is on, with a justified `// solhint-disable-next-line not-rely-on-time` at
+    each timestamp read.
+  **Pending config:** turn on both rules, and record why in an ADR that amends ADR-009.
+
+### Tests ([docs/tests.md][tests], [PCV.test.ts][pcvtest])
+- M11 Group tests by external function: one test contract per function, named
+  `<Contract><Function>Test`. Inside it, sections appear in this order, each marked with a
+  `// --- … ---` comment: Expected Reverts, Emitted Events, System State Changes, Balance changes,
+  Fees, State change in other contracts.
+- M12 A test checks one behaviour. The behaviour part of the name uses Mezo's wording:
+  `test_R3_revertsWhenNonceReplayed`, `test_R1_emitsPotCredited`.
+- M13 Share setup through a base `setUp` fixture and helper wrappers whose defaults can be
+  overridden (`_deposit({amount: ..., sender: alice})`). Balance tests record `before`, act, then
+  assert `after == before ± delta`. A value read once is asserted inline. A temporary variable is
+  used only when the value is used more than once or the name makes the test clearer.
+
+### TypeScript ([.prettierrc.js][prettierrc], [dapp/.eslintrc][eslint])
+- M14 Use `@thesis/prettier-config`: `semi: false` and Prettier 3 defaults otherwise (double
+  quotes, 80 columns, trailing commas). Lint with `@thesis-co/eslint-config`. Sort imports with
+  `simple-import-sort` in these groups: packages, internal packages, `#/` aliases, side-effect
+  imports, parent paths, sibling paths, styles. **Pending config:** add these when `relayer/` and
+  `app/` get tooling.
+
+### Commits ([CONTRIBUTING.md][contrib])
+- M15 Write commits per Chris Beams: imperative summary of 50 characters or fewer, body wrapped at
+  72. Any non-trivial commit has a body that explains why. No ticket or issue references: the
+  message must stand on its own. One logical change per commit. Convention changes and functional
+  changes go in separate commits. The conventional-commit prefix from CLAUDE.md stays.
+
+### Conflicts
+- Error style: Mezo mostly uses `require(cond, "Contract: msg")`. **We keep custom errors** (S7).
+- Pragma: Mezo also uses exact `0.8.24`, so there is no conflict.
+- Imports: Mezo uses global `import "./X.sol";`. **We keep named imports** (S2). solhint
+  `no-global-import` is an error in our config, and this is the one deviation not on the protected
+  list, so the owner should confirm it. Mezo's grouping (third-party first, a blank line, then
+  local) is adopted.
+- Upgradeability: Mezo uses OZ upgradeable proxies with initializers. **We forbid proxies** (S13,
+  single payment path).
+- Mocks: Mezo keeps testers and mocks in `contracts/tests/` under the source tree. **We keep them
+  in `test/mocks/`** (X8, no test code in `src/`).
+- Test names: Mezo uses `it("reverts when …")`. **We keep rule-ID names** (X1) and use Mezo's
+  wording for the behaviour part (M12).
+- Lint disables: Mezo disables rules with no reason given. **We keep the one-line justification**
+  (CLAUDE.md rule 6).
+- S4: parameter naming changes to `_leading` (M1).
+- S6: events and errors move to the interface (M3).
+- Formatting: line length drops from 120 to 80 (M9).
+- `not-rely-on-time`: changes from off to on (M10).
+- Chain library: Mezo's tests use ethers v6 because they run on Hardhat. **We keep viem** (T2).
+  This is a choice of test harness, not a style rule.
+- Not adopted, owner's call: Mezo licenses contracts GPL-3.0 and we use MIT. Mezo requires signed
+  commits; that is not enforced here.
+
+[contrib]: https://github.com/mezo-org/mezod/blob/main/CONTRIBUTING.md
+[mclaude]: https://github.com/mezo-org/musd/blob/main/CLAUDE.md
+[solthesis]: https://www.npmjs.com/package/solhint-config-thesis
+[solhint]: https://github.com/mezo-org/musd/blob/main/solidity/.solhint.json
+[prettierrc]: https://github.com/mezo-org/musd/blob/main/.prettierrc.js
+[eslint]: https://github.com/mezo-org/musd/blob/main/dapp/.eslintrc
+[musd]: https://github.com/mezo-org/musd/blob/main/solidity/contracts/token/MUSD.sol
+[imusd]: https://github.com/mezo-org/musd/blob/main/solidity/contracts/token/IMUSD.sol
+[pcv]: https://github.com/mezo-org/musd/blob/main/solidity/contracts/PCV.sol
+[ipcv]: https://github.com/mezo-org/musd/blob/main/solidity/contracts/interfaces/IPCV.sol
+[bo]: https://github.com/mezo-org/musd/blob/main/solidity/contracts/BorrowerOperations.sol
+[gv]: https://github.com/mezo-org/musd/blob/main/solidity/contracts/GovernableVariables.sol
+[tests]: https://github.com/mezo-org/musd/blob/main/docs/tests.md
+[pcvtest]: https://github.com/mezo-org/musd/blob/main/solidity/test/normal/PCV.test.ts

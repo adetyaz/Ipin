@@ -60,9 +60,8 @@ Mezo testnet RPC alias: `--rpc-url mezo_testnet`.
 
 ```
 docs/       money-rules.md, decisions.md, security reviews (docs/research/ is owned by another agent — don't touch)
-contracts/  Foundry: src/ (Vault, Pots, PolicyEngine, policies/, adapters/), test/, script/
+contracts/  Foundry: src/ (Pots, PolicyEngine, adapters/), test/, script/
 relayer/    TypeScript + viem: submits signed requests, runs schedules
-adapters/   airtime/data provider integration (sandbox in Wave 1)
 app/        phone-first PWA: sender + requester screens
 scripts/    simulate-month, booksBalance check, repo tooling (check-pragma.mjs)
 ```
