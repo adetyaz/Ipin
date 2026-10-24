@@ -102,3 +102,13 @@ don't build anything that depends on it) · **superseded**. Append new entries; 
   requester is never a payee).
 - Relayer: a minimal Node service with a funded testnet key that submits signed requests and runs
   schedules.
+
+## ADR-013 Single PolicyEngine with built-in checks for Wave 1; policy plug-ins are Wave 2
+- Status: accepted (user, 2026-10-24).
+- Decision: Wave 1 has one PolicyEngine with fixed, built-in checks: payee allowlist, cap per
+  period, nonce + expiry, and the sender's approval. There is no `IPolicy` interface and no
+  per-policy contracts; `IPolicy.sol` was deleted unused.
+- Why: four fixed checks don't need a plug-in seam, and one contract is easier to test and review
+  before the deadline. Pluggable policies move to Wave 2.
+- Follow-up: CODING_STANDARDS S15 ("one policy = one contract implementing `IPolicy`") and the
+  README's "policy plug-ins" wording still describe the old plan; update them with their owners.
