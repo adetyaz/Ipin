@@ -14,11 +14,19 @@
     "fmt": "cd contracts && forge fmt",
     "fmt:check": "cd contracts && forge fmt --check",
     "lint": "node scripts/check-pragma.mjs && solhint --max-warnings 0 \"contracts/src/**/*.sol\" \"contracts/test/**/*.sol\" \"contracts/script/**/*.sol\"",
-    "check": "pnpm fmt:check && pnpm lint && pnpm test",
-    "abi": "cd contracts && forge build && cd .. && node scripts/export-abi.mjs"
+    "check": "pnpm fmt:check && pnpm lint && pnpm test && pnpm check:ts",
+    "abi": "cd contracts && forge build && cd .. && node scripts/export-abi.mjs",
+    "check:ts": "pnpm -r --if-present typecheck && pnpm -r --if-present lint && pnpm -r --if-present test"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "cross-env": "^10.1.0",
-    "solhint": "^6.2.5"
+    "eslint": "^10.13.0",
+    "eslint-plugin-simple-import-sort": "^14.0.0",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.10",
+    "solhint": "^6.2.5",
+    "typescript": "6.0.3",
+    "typescript-eslint": "^8.72.0"
   }
 }

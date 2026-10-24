@@ -147,3 +147,18 @@ don't build anything that depends on it) · **superseded**. Append new entries; 
   its reason: two `block-timestamp` (R3 expiry and R9 due dates are wall-clock rules) and two
   `reentrancy-events` (the only earlier external call is SignatureChecker's ERC-1271 staticcall).
 
+
+## ADR-017 TypeScript tooling (M14 config)
+- Status: accepted (2026-10-24, relayer agent; convention change per CLAUDE.md rule 6). Settles
+  the M14 "Pending config" for `packages/*` and `relayer/`.
+- Prettier: `.prettierrc.json` is `{ "semi": false }`, the content of Thesis's config, inlined
+  because `@thesis/prettier-config` is not on the npm registry.
+- ESLint: root `eslint.config.mjs` (flat config) with `typescript-eslint` `strictTypeChecked` +
+  `stylisticTypeChecked` and M14's `simple-import-sort` groups, instead of
+  `@thesis-co/eslint-config` (legacy eslintrc format, does not load in ESLint 10).
+- Money (T3, R1): `parseFloat` and `.toFixed` are lint errors in all linted TS; `Number(...)` is
+  a lint error in `packages/` and `relayer/`. The browser entry of `@ipin/shared` may not import
+  Node built-ins.
+- TypeScript is pinned to 6.0.x: `typescript-eslint` 8 supports `<6.1`, so TS 7 cannot be used.
+- Root `pnpm check` also runs `pnpm -r --if-present typecheck`, then `lint`, then `test`, so each
+  workspace (app included) plugs in through those three script names.

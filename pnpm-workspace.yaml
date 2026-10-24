@@ -1,3 +1,8 @@
 packages:
+  - "packages/*"
   - "relayer"
   - "app"
+allowBuilds:
+  esbuild: true
+minimumReleaseAgeExclude:
+  - viem@2.57.11

@@ -31,3 +31,7 @@ Thumbs.db
 
 # Claude Code agent worktrees
 .claude/worktrees/
+
+# Relayer runtime state and logs
+relayer/data/
+logs/
