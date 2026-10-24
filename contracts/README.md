@@ -1,6 +1,6 @@
 # contracts
 
-Foundry project for Ìpín (Vault, Pots, PolicyEngine, policies/, adapters/). No feature code yet.
+Foundry project for Ìpín (Vault, Pots, PolicyEngine).
 
 - Compiler: solc 0.8.24, EVM `cancun` (pinned; see `../docs/decisions.md`).
 - Deps (git submodules, pinned): forge-std v1.9.7, OpenZeppelin Contracts v5.7.0.
