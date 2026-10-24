@@ -1,0 +1,27 @@
+{
+  "name": "@ipin/shared",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Ìpín shared TS: Mezo chain, deployments, ABIs, MUSD amounts, EIP-712, API schemas.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./node": "./src/node.ts"
+  },
+  "scripts": {
+    "gen:abi": "node scripts/gen-abi.mjs",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint . && prettier --check .",
+    "fmt": "prettier --write .",
+    "test": "vitest run",
+    "check": "pnpm typecheck && pnpm lint && pnpm test"
+  },
+  "dependencies": {
+    "viem": "^2.57.11",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "vitest": "^5.0.5"
+  }
+}
