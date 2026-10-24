@@ -108,3 +108,10 @@ On-chain actions the sender takes directly from MetaMask (not via relayer): crea
 The relayer also runs schedules: every minute it calls `executeSchedule(id)` for due schedules and
 logs the result. The statement and booksBalance badge read the chain directly (events +
 `booksBalance()`), not the relayer.
+
+### Wire details (as implemented by the relayer)
+
+- `potId` and `quantity` are accepted as a decimal string or a JSON integer; responses always use strings.
+- `createdAt` is ISO 8601. `POST /invites` and `POST /requests` return 201.
+- `/config` returns `deployBlock` as a string and adds `vault` (same as `pots`).
+- Invite links are `<APP_URL>/i/<code>` (app route `/i/[code]`).
