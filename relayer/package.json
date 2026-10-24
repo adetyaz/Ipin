@@ -1,0 +1,29 @@
+{
+  "name": "relayer",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Ìpín relayer: stores signed requests, submits sender-approved payments and runs schedules.",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "dev": "tsx watch src/main.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint . && prettier --check .",
+    "fmt": "prettier --write .",
+    "test": "vitest run",
+    "check": "pnpm typecheck && pnpm lint && pnpm test"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.5",
+    "@ipin/shared": "workspace:*",
+    "hono": "^4.13.13",
+    "pino": "^10.4.0",
+    "tsx": "^4.23.15",
+    "viem": "^2.57.11",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "vitest": "^5.0.5"
+  }
+}
