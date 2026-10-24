@@ -57,14 +57,8 @@ don't build anything that depends on it) · **superseded**. Append new entries; 
   reversal webhook (code `040`) after success must refund the pot (R6). Details:
   `docs/research/partners.md`.
 
-## ADR-008 Lint: `gas-small-strings` off
-- Status: accepted (2026-10-18, contracts agent; convention change per CLAUDE.md rule 6)
-- Why: EIP-712 type strings (`PaymentRequest(...)`, `Permit(...)`, `EIP712Domain(...)`) are longer
-  than 32 bytes by specification and are hashed at compile time into `bytes32` constants, so the
-  gas hint does not apply. Keeping the rule on would force disables on every typehash.
-
 ## ADR-008 Wallets: requester has no chain key; sender uses Privy embedded wallet
-- Status: **proposed** (chief of staff, 2026-10-18; Privy spike due 2026-10-19)
+- Status: **superseded** for Wave 1 by ADR-012 (2026-10-24). Kept as the post-Wave-1 plan.
 - Requester: invited by WhatsApp link; the browser generates a non-extractable WebCrypto P-256
   device key (IndexedDB) that authenticates requests to the relayer. Nothing on-chain trusts it:
   only the sender's EIP-712 approval settles (R8). Recovery = sender re-invites.
@@ -92,3 +86,19 @@ don't build anything that depends on it) · **superseded**. Append new entries; 
   yield (R10), which the savings vault pays in MUSD outside the principal.
 - Open: who surplus is allocated to (pro-rata to `pot.saved`, the sender's pot, or the treasury) is
   decided with R10. Until then it is not moved by any function (no sweep, S13).
+
+## ADR-011 Lint: `gas-small-strings` off
+- Status: accepted (2026-10-18, contracts agent; convention change per CLAUDE.md rule 6).
+  Renumbered on 2026-10-24: it was filed as a second ADR-008.
+- Why: EIP-712 type strings (`PaymentRequest(...)`, `Permit(...)`, `EIP712Domain(...)`) are longer
+  than 32 bytes by specification and are hashed at compile time into `bytes32` constants, so the
+  gas hint does not apply. Keeping the rule on would force disables on every typehash.
+
+## ADR-012 Wallets for Wave 1: injected sender wallet, app-generated requester key, minimal relayer
+- Status: accepted (user, 2026-10-24). Supersedes ADR-008 for Wave 1. Track 2 only.
+- Sender: an injected wallet (MetaMask) on Mezo testnet. No Privy in Wave 1.
+- Requester: the app generates an EVM key and stores it in the browser. The sender registers that
+  address on-chain per pot, so the contract knows the requester and can refuse to pay it (a
+  requester is never a payee).
+- Relayer: a minimal Node service with a funded testnet key that submits signed requests and runs
+  schedules.
