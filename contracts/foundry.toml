@@ -14,7 +14,7 @@ bytecode_hash = "none"
 cbor_metadata = false
 # Fail the build on any compiler warning: warnings are bugs here.
 deny = "warnings"
-fs_permissions = [{ access = "read", path = "./" }]
+fs_permissions = [{ access = "read", path = "./" }, { access = "read-write", path = "../deployments" }]
 
 [profile.default.fuzz]
 runs = 256

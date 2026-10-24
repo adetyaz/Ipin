@@ -27,6 +27,20 @@ Wave 1 deploys **one** contract, `Vault`, which is both the pots ledger and the 
 So `pots` and `policyEngine` hold the **same address**. Use `contracts/abi/Vault.json` (full ABI) for everything; `IPots.json` and `IPolicyEngine.json` are the same functions split by
 concern. Source of truth for signatures and NatSpec: `contracts/src/interfaces/`.
 
+Deploy (from `contracts/`, Foundry on PATH). Env: `RELAYER_ADDRESS` (required), `FEE_AMOUNT`
+(default `250000000000000000`, must be `0 < fee <= 1e18`), `MUSD_ADDRESS` (default testnet MUSD).
+
+```sh
+# dry-run on a fork: writes deployments/mezo-testnet.json.dry-run.json (gitignored)
+forge script script/Deploy.s.sol --fork-url mezo_testnet
+# real deploy (owner only): writes deployments/mezo-testnet.json
+forge script script/Deploy.s.sol --rpc-url mezo_testnet --broadcast --private-key $DEPLOYER_KEY
+# end-to-end check with real MUSD on a fork (never broadcast)
+forge script script/ForkSmoke.s.sol --fork-url mezo_testnet
+```
+
+Key order in the written JSON is alphabetical (forge serializer); parse it as an object.
+
 ## 2. Item hash (app ↔ contracts)
 
 `itemHash = keccak256(abi.encode(string item, uint256 quantity, uint256 unitPrice, string vendor))`.

@@ -1,0 +1,2 @@
+# Fork dry-runs of Deploy.s.sol write here; only real deploys are committed.
+*.dry-run.json
