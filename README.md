@@ -8,6 +8,8 @@
 
 Full plan with diagrams: https://claude.ai/code/artifact/105aeb55-658d-427b-be6e-c1a16a736b93
 
+Wave 2 and beyond (subscriptions, x402 agent budgets, borrow-to-pay checkout, templates): [docs/wave2.md](docs/wave2.md)
+
 ---
 
 ## Start here (for whoever picks this up next)
@@ -46,22 +48,23 @@ The lead story: *"I sent $1,000 home to build my house. Six months later, the mo
 5. The Upkeep pot pays each person a capped monthly allowance automatically.
 6. Unspent money sits in the MUSD savings vault, and the statement shows the books balance.
 
-## Three ways money leaves a pot
+## Ways money leaves a pot
 
 | Mode | Trigger | Example | Wave |
 | --- | --- | --- | --- |
 | On request | Requester asks, sender approves | 200 bags of cement | 1 |
 | On schedule | A date, within a cap | Monthly upkeep allowance | 1 |
-| Per use | A service charges per call (x402) | An AI agent paying for tools | 2 |
+| Per use | A service charges per call (x402), under a sender mandate | An AI agent paying for tools | 2 |
+| Borrow to pay | The sender borrows MUSD against BTC and pays a merchant in one transaction | Paying at checkout without selling BTC | 2 |
 
-The same engine covers school fees, medical bills, small-business stock, grants paid by milestone and agent budgets. Each is a configuration, not a new feature.
+The same engine covers school fees, medical bills, small-business stock, grants paid by milestone, subscriptions and agent budgets. Each is a configuration, not a new feature. Recurring payments already work in Wave 1: a schedule to an approved payee is a subscription. See [docs/wave2.md](docs/wave2.md) for the templates and the Wave 2 designs.
 
 ---
 
 ## Architecture
 
 ```
- Funding:   MUSD deposit / Banxa card (W1)   USDC on Base (W2)   BTC credit line (later)
+ Funding:   MUSD deposit / Banxa card (W1)   BTC loan, borrow-to-pay (W2)   tokenized stocks (later)
                               \                    |                    /
                                v                   v                   v
                      +-----------------------------------------------+
@@ -90,7 +93,7 @@ The policy engine is the only door money leaves through, so a new use case, spen
 
 - **Roles:** a requester, a payee and an agent are all a key with permissions on a pot. Only the sender can change rules or approve requests.
 - **Payment request:** one EIP-712 format for every payment: pot, payee, amount, nonce, expiry, plus a running total so metered settlement fits later.
-- **Release modes:** on request (needs the sender's approval signature), on schedule (date and cap checked on-chain), per use (x402, Wave 2).
+- **Release modes:** on request (needs the sender's approval signature), on schedule (date and cap checked on-chain), per use (x402 under a sender mandate, Wave 2), borrow to pay (Mezo trove draw plus payment in one transaction, Wave 2).
 - **Policies:** each rule is a small contract behind one interface, added without redeploying the vault.
 - **Payees:** approved MUSD addresses, the airtime adapter, the MUSD savings vault and (Wave 2) a naira bank-payout partner all sit behind one adapter interface.
 
@@ -144,12 +147,12 @@ Write these into `docs/money-rules.md` before any contract code.
 
 | Component | Wave 1 (Oct 16–26) | Wave 2 (Nov 2–15) | Later |
 | --- | --- | --- | --- |
-| Pots | Pots, split on deposit, remainder rule | Multiple senders per pot | Templates (school fees, rent, medical) |
-| Release modes | On request with approval; on schedule | Per use (x402) | Milestone release with photo proof |
+| Pots | Pots, split on deposit, remainder rule | Templates (school fees, medical, subscriptions, agent budget); multiple senders per pot | More templates |
+| Release modes | On request with approval; on schedule (also covers subscriptions) | Per use (x402, agent mandates); borrow-to-pay checkout | Milestone release with photo proof |
 | Policy engine | Caps, approved payees, nonces, approvals | Approval thresholds | Custom rule plug-ins |
-| Requesters and spenders | Relative or site manager (phone web app) | AI agent with session key | Telegram bot |
+| Requesters and spenders | Relative or site manager (phone web app) | AI agent with a mandate (x402); merchant subscribe links | Telegram or WhatsApp bot |
 | Payees | Approved MUSD addresses; airtime and data adapter (sandbox) | Naira bank payouts to vendors (partner, mainnet); airtime adapter as an x402 endpoint | More countries |
-| Funding | MUSD deposit; Banxa card on-ramp link | Recurring top-ups from the sender | BTC credit line |
+| Funding | MUSD deposit; Banxa card on-ramp link | Borrow MUSD against BTC (Mezo troves); recurring top-ups from the sender | Tokenized stocks as collateral (BNB Chain or Ethereum) |
 | Savings | Idle pots in the MUSD savings vault (if its contract is callable) | Yield shown per pot | — |
 | Proof | Invariant tests, simulated month, booksBalance() | Statement export for senders | Third-party audit |
 | Chain | Mezo testnet | Mezo mainnet | Base, BNB Chain |
@@ -234,7 +237,7 @@ Kickoff takeaways: judges use the live product and read the code to check it doe
 
 **Deck:** title → problem → the idea → how it works → why Mezo → proof → beyond the house + business model → roadmap and team.
 
-**Form drafts:** Category: purpose-bound payments. TL;DR: Send money for a purpose; Ìpín makes sure it's spent on that purpose, held in dollars until then. Track: Track 2, with Track 1 elements. Status: entirely new.
+**Form drafts:** Category: purpose-bound payments. TL;DR: Send money for a purpose; Ìpín makes sure it's spent on that purpose, held in dollars until then. Track: both. Track 2 is primary (no-wallet requesters, vendors, agents). Track 1 comes through the savings vault and, in Wave 2, borrow-to-pay on Mezo troves. Status: entirely new.
 
 ---
 

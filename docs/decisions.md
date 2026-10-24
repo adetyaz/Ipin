@@ -162,3 +162,17 @@ don't build anything that depends on it) · **superseded**. Append new entries; 
 - TypeScript is pinned to 6.0.x: `typescript-eslint` 8 supports `<6.1`, so TS 7 cannot be used.
 - Root `pnpm check` also runs `pnpm -r --if-present typecheck`, then `lint`, then `test`, so each
   workspace (app included) plugs in through those three script names.
+
+## ADR-018 Wave 2 direction: one engine, many purposes
+- Status: proposed (2026-10-24, docs agent, from the user's brief). Design only; no Wave 1 code.
+- Decision: Wave 2 extends the same PolicyEngine with (1) purpose templates, (2) subscriptions
+  and merchant subscribe links on top of the existing schedules, (3) x402 agent budgets under a
+  sender mandate (step A: an agent float; step B: ERC-1271 + Permit2 direct settlement), and
+  (4) borrow-to-pay checkout using Mezo's `withdrawMUSDWithSignature` (MUSD minted to the vault
+  and paid to an approved merchant in one transaction). Tokenized-stock collateral stays Later.
+  Full design and proposed rules R11–R13: `docs/wave2.md`.
+- Why: Mezo scores "extend, don't detour" and composability. Borrow-to-pay builds on Mezo's own
+  troves (Track 1), and agents, subscriptions and templates widen MUSD access (Track 2), without
+  a second money path.
+- Open: the Wave 2 priority order in `docs/wave2.md` §7 differs from the feature board (which leads
+  with naira payouts). The user decides. R11–R13 enter `docs/money-rules.md` only when built.
