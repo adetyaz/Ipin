@@ -3,7 +3,8 @@ pragma solidity 0.8.24;
 
 import {Vm} from "forge-std/Vm.sol";
 
-import {Vault} from "../src/Vault.sol";
+import {Multicall} from "@openzeppelin/contracts/utils/Multicall.sol";
+
 import {IPolicyEngine} from "../src/interfaces/IPolicyEngine.sol";
 import {IPots} from "../src/interfaces/IPots.sol";
 import {PaymentRequest} from "../src/libraries/PaymentRequests.sol";
@@ -41,13 +42,13 @@ contract VaultMulticallTest is IpinTest {
         bps[0] = _BPS;
 
         bytes[] memory calls = new bytes[](7);
-        calls[0] = abi.encodeCall(Vault.addPayee, (potId, attacker));
-        calls[1] = abi.encodeCall(Vault.removePayee, (potId, _payee));
-        calls[2] = abi.encodeCall(Vault.addRequester, (potId, attacker));
-        calls[3] = abi.encodeCall(Vault.setCap, (potId, type(uint256).max));
-        calls[4] = abi.encodeCall(Vault.createSchedule, (potId, _payee, 1e18, 0, 1 days));
-        calls[5] = abi.encodeCall(Vault.createSplit, (ids, bps, potId));
-        calls[6] = abi.encodeCall(Vault.cancelSchedule, (scheduleId));
+        calls[0] = abi.encodeCall(IPolicyEngine.addPayee, (potId, attacker));
+        calls[1] = abi.encodeCall(IPolicyEngine.removePayee, (potId, _payee));
+        calls[2] = abi.encodeCall(IPolicyEngine.addRequester, (potId, attacker));
+        calls[3] = abi.encodeCall(IPolicyEngine.setCap, (potId, type(uint256).max));
+        calls[4] = abi.encodeCall(IPolicyEngine.createSchedule, (potId, _payee, 1e18, 0, 1 days));
+        calls[5] = abi.encodeCall(IPots.createSplit, (ids, bps, potId));
+        calls[6] = abi.encodeCall(IPolicyEngine.cancelSchedule, (scheduleId));
         bytes memory notOwner = abi.encodeWithSelector(IPots.NotPotOwner.selector, potId, attacker);
 
         // Each inner call alone is refused with the caller's own address:
@@ -60,14 +61,14 @@ contract VaultMulticallTest is IpinTest {
             _vault.multicall(one);
         }
         bytes[] memory dep = new bytes[](1);
-        dep[0] = abi.encodeCall(Vault.deposit, (1, 1));
+        dep[0] = abi.encodeCall(IPots.deposit, (1, 1));
         vm.expectRevert(abi.encodeWithSelector(IPots.NotSplitOwner.selector, 1, attacker));
         vm.prank(attacker);
         _vault.multicall(dep);
 
         // And so does the whole batch, after a call the attacker may make.
         bytes[] memory batch = new bytes[](2);
-        batch[0] = abi.encodeCall(Vault.createPot, ("Mine", 0));
+        batch[0] = abi.encodeCall(IPots.createPot, ("Mine", 0));
         batch[1] = calls[0];
         uint256 potsBefore = _vault.potCount();
         vm.expectRevert(notOwner);
@@ -85,7 +86,7 @@ contract VaultMulticallTest is IpinTest {
         (uint256 house,) = _predictPotIds();
         bytes[] memory calls = _setupBatch(500e18, _vendor);
         // The last call fails: the payee is the zero address.
-        calls[calls.length - 1] = abi.encodeCall(Vault.addPayee, (house, address(0)));
+        calls[calls.length - 1] = abi.encodeCall(IPolicyEngine.addPayee, (house, address(0)));
 
         vm.expectRevert(abi.encodeWithSelector(IPolicyEngine.InvalidPayee.selector, address(0)));
         vm.prank(_family);
@@ -125,7 +126,7 @@ contract VaultMulticallTest is IpinTest {
         PaymentRequest memory req = _request(potId, 10e18);
         bytes memory sig = _sign(req, _senderKey);
         bytes[] memory calls = new bytes[](2);
-        calls[0] = abi.encodeCall(Vault.execute, (req, sig));
+        calls[0] = abi.encodeCall(IPolicyEngine.execute, (req, sig));
         calls[1] = calls[0];
 
         vm.expectRevert(abi.encodeWithSelector(IPolicyEngine.NonceAlreadyUsed.selector, _sender, req.nonce));
@@ -151,7 +152,7 @@ contract VaultMulticallTest is IpinTest {
         bytes memory sig = _sign(req, _senderKey);
         req.amount = 20e18; // altered after signing
         bytes[] memory calls = new bytes[](1);
-        calls[0] = abi.encodeCall(Vault.execute, (req, sig));
+        calls[0] = abi.encodeCall(IPolicyEngine.execute, (req, sig));
 
         vm.expectRevert(abi.encodeWithSelector(IPolicyEngine.InvalidSignature.selector, potId, _sender));
         vm.prank(_relayer);
@@ -162,12 +163,12 @@ contract VaultMulticallTest is IpinTest {
         // Nothing in the vault is payable, so no msg.value can be reused
         // across inner calls (the classic Multicall + payable pitfall).
         bytes[] memory calls = new bytes[](1);
-        calls[0] = abi.encodeCall(Vault.createPot, ("House", 0));
+        calls[0] = abi.encodeCall(IPots.createPot, ("House", 0));
         vm.deal(_family, 1 ether);
         vm.prank(_family);
         // A low-level call is the only way to attach value to a non-payable function.
         // solhint-disable-next-line avoid-low-level-calls
-        (bool ok,) = address(_vault).call{value: 1 ether}(abi.encodeCall(Vault.multicall, (calls)));
+        (bool ok,) = address(_vault).call{value: 1 ether}(abi.encodeCall(Multicall.multicall, (calls)));
         assertFalse(ok);
         assertEq(address(_vault).balance, 0);
         assertEq(_vault.potCount(), 0);
@@ -226,11 +227,12 @@ contract VaultMulticallTest is IpinTest {
     }
 
     function test_R2_multicallTopUpWithPermit() public {
+        bytes[] memory setup = _setupBatch(100e18, _vendor);
         vm.prank(_family);
-        _vault.multicall(_setupBatch(100e18, _vendor));
+        _vault.multicall(setup);
         (uint8 v, bytes32 r, bytes32 s, uint256 deadline) = _permit(50e18);
         bytes[] memory calls = new bytes[](1);
-        calls[0] = abi.encodeCall(Vault.depositWithPermit, (1, 50e18, deadline, v, r, s));
+        calls[0] = abi.encodeCall(IPots.depositWithPermit, (1, 50e18, deadline, v, r, s));
 
         vm.prank(_family);
         _vault.multicall(calls);
@@ -241,6 +243,11 @@ contract VaultMulticallTest is IpinTest {
     }
 
     // --- Helper functions ---
+
+    function _createScheduleFor(uint256 _potId) internal returns (uint256 scheduleId) {
+        vm.prank(_sender);
+        scheduleId = _vault.createSchedule(_potId, _payee, 1e18, uint64(vm.getBlockTimestamp()), 1 days);
+    }
 
     function _predictPotIds() internal view returns (uint256 house, uint256 upkeep) {
         uint256 count = _vault.potCount();
@@ -259,24 +266,18 @@ contract VaultMulticallTest is IpinTest {
         uint256 splitId = _vault.splitCount() + 1;
 
         calls = new bytes[](5);
-        calls[0] = abi.encodeCall(Vault.createPot, ("House", _HOUSE_CAP));
-        calls[1] = abi.encodeCall(Vault.createPot, ("Upkeep", _UPKEEP_CAP));
-        calls[2] = abi.encodeCall(Vault.createSplit, (ids, bps, house));
-        calls[3] = abi.encodeCall(Vault.depositWithPermit, (splitId, _amount, deadline, v, r, s));
-        calls[4] = abi.encodeCall(Vault.addPayee, (house, _payeeAddr));
+        calls[0] = abi.encodeCall(IPots.createPot, ("House", _HOUSE_CAP));
+        calls[1] = abi.encodeCall(IPots.createPot, ("Upkeep", _UPKEEP_CAP));
+        calls[2] = abi.encodeCall(IPots.createSplit, (ids, bps, house));
+        calls[3] = abi.encodeCall(IPots.depositWithPermit, (splitId, _amount, deadline, v, r, s));
+        calls[4] = abi.encodeCall(IPolicyEngine.addPayee, (house, _payeeAddr));
     }
 
     function _permit(uint256 _amount) internal view returns (uint8 v, bytes32 r, bytes32 s, uint256 deadline) {
         deadline = vm.getBlockTimestamp() + 1 hours;
-        bytes32 structHash = keccak256(
-            abi.encode(_PERMIT_TYPEHASH, _family, address(_vault), _amount, _musd.nonces(_family), deadline)
-        );
+        bytes32 structHash =
+            keccak256(abi.encode(_PERMIT_TYPEHASH, _family, address(_vault), _amount, _musd.nonces(_family), deadline));
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", _musd.DOMAIN_SEPARATOR(), structHash));
         (v, r, s) = vm.sign(_familyKey, digest);
-    }
-
-    function _createScheduleFor(uint256 _potId) internal returns (uint256 scheduleId) {
-        vm.prank(_sender);
-        scheduleId = _vault.createSchedule(_potId, _payee, 1e18, uint64(vm.getBlockTimestamp()), 1 days);
     }
 }
