@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {Pots} from "../src/Pots.sol";
+import {IPots} from "../src/interfaces/IPots.sol";
 import {IpinTest} from "./utils/IpinTest.sol";
 import {Vm} from "forge-std/Vm.sol";
 
@@ -16,7 +16,7 @@ contract PotsTest is IpinTest {
         assertEq(_musd.decimals(), 18);
 
         vm.expectEmit(true, true, true, true, address(_vault));
-        emit Pots.PotCredited(potId, 1, 1);
+        emit IPots.PotCredited(potId, 1, 1);
         vm.prank(_sender);
         _vault.deposit(splitId, 1); // one base unit, no scaling anywhere
 
@@ -36,7 +36,7 @@ contract PotsTest is IpinTest {
         uint256 splitId = _vault.createSplit(pots, bps, b);
 
         vm.expectEmit(true, true, true, true, address(_vault));
-        emit Pots.RemainderCredited(b, 1, 1);
+        emit IPots.RemainderCredited(b, 1, 1);
         vm.prank(_sender);
         _vault.deposit(splitId, 10); // floor pieces 3,3,3; remainder 1 goes to pot b
 
@@ -52,7 +52,7 @@ contract PotsTest is IpinTest {
         (pots[0], pots[1]) = (a, b);
         uint16[] memory bps = new uint16[](2);
         (bps[0], bps[1]) = (5000, 4999);
-        vm.expectRevert(abi.encodeWithSelector(Pots.SplitWeightsInvalid.selector, uint256(9999)));
+        vm.expectRevert(abi.encodeWithSelector(IPots.SplitWeightsInvalid.selector, uint256(9999)));
         vm.prank(_sender);
         _vault.createSplit(pots, bps, a);
     }
@@ -64,7 +64,7 @@ contract PotsTest is IpinTest {
         (pots[0], pots[1]) = (a, b);
         uint16[] memory bps = new uint16[](2);
         (bps[0], bps[1]) = (_BPS, 0);
-        vm.expectRevert(abi.encodeWithSelector(Pots.ZeroWeight.selector, uint256(1)));
+        vm.expectRevert(abi.encodeWithSelector(IPots.ZeroWeight.selector, uint256(1)));
         vm.prank(_sender);
         _vault.createSplit(pots, bps, a);
     }
@@ -75,7 +75,7 @@ contract PotsTest is IpinTest {
         (pots[0], pots[1]) = (a, a);
         uint16[] memory bps = new uint16[](2);
         (bps[0], bps[1]) = (5000, 5000);
-        vm.expectRevert(abi.encodeWithSelector(Pots.DuplicatePot.selector, a));
+        vm.expectRevert(abi.encodeWithSelector(IPots.DuplicatePot.selector, a));
         vm.prank(_sender);
         _vault.createSplit(pots, bps, a);
     }
@@ -87,7 +87,7 @@ contract PotsTest is IpinTest {
         pots[0] = a;
         uint16[] memory bps = new uint16[](1);
         bps[0] = _BPS;
-        vm.expectRevert(abi.encodeWithSelector(Pots.RemainderPotNotInSplit.selector, other));
+        vm.expectRevert(abi.encodeWithSelector(IPots.RemainderPotNotInSplit.selector, other));
         vm.prank(_sender);
         _vault.createSplit(pots, bps, other);
     }
@@ -99,7 +99,7 @@ contract PotsTest is IpinTest {
         pots[0] = theirs;
         uint16[] memory bps = new uint16[](1);
         bps[0] = _BPS;
-        vm.expectRevert(abi.encodeWithSelector(Pots.NotPotOwner.selector, theirs, _sender));
+        vm.expectRevert(abi.encodeWithSelector(IPots.NotPotOwner.selector, theirs, _sender));
         vm.prank(_sender);
         _vault.createSplit(pots, bps, theirs);
     }
@@ -108,7 +108,7 @@ contract PotsTest is IpinTest {
         uint256 potId = _createPot(_sender, 0);
         uint256 splitId = _singleSplit(_sender, potId);
         address stranger = makeAddr("stranger");
-        vm.expectRevert(abi.encodeWithSelector(Pots.NotSplitOwner.selector, splitId, stranger));
+        vm.expectRevert(abi.encodeWithSelector(IPots.NotSplitOwner.selector, splitId, stranger));
         vm.prank(stranger);
         _vault.deposit(splitId, 1e18);
     }
@@ -197,7 +197,7 @@ contract PotsTest is IpinTest {
 
     function _sumPotCredited(Vm.Log[] memory logs) private pure returns (uint256 sum) {
         for (uint256 i = 0; i < logs.length; ++i) {
-            if (logs[i].topics[0] == Pots.PotCredited.selector) sum += abi.decode(logs[i].data, (uint256));
+            if (logs[i].topics[0] == IPots.PotCredited.selector) sum += abi.decode(logs[i].data, (uint256));
         }
     }
 }

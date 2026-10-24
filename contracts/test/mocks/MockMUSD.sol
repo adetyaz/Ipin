@@ -10,9 +10,9 @@ contract MockMUSD is ERC20, ERC20Permit {
     constructor() ERC20("Mezo USD", "MUSD") ERC20Permit("Mezo USD") {}
 
     /// @notice Mint test MUSD.
-    /// @param to Recipient.
-    /// @param amount Base units.
-    function mint(address to, uint256 amount) external {
-        _mint(to, amount);
+    /// @param _to Recipient.
+    /// @param _amount Base units.
+    function mint(address _to, uint256 _amount) external {
+        _mint(_to, _amount);
     }
 }
