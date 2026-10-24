@@ -876,6 +876,19 @@ export const vaultAbi = [
   },
   {
     "type": "function",
+    "name": "invalidateNonce",
+    "inputs": [
+      {
+        "name": "_nonce",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "isPayee",
     "inputs": [
       {
@@ -1193,6 +1206,25 @@ export const vaultAbi = [
         "name": "amount",
         "type": "uint256",
         "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "NonceInvalidated",
+    "inputs": [
+      {
+        "name": "signer",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "nonce",
+        "type": "uint256",
+        "indexed": true,
         "internalType": "uint256"
       }
     ],
