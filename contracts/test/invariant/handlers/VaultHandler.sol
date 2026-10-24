@@ -7,6 +7,7 @@ import {StdUtils} from "forge-std/StdUtils.sol";
 import {Vm} from "forge-std/Vm.sol";
 
 import {Vault} from "../../../src/Vault.sol";
+import {IPolicyEngine} from "../../../src/interfaces/IPolicyEngine.sol";
 import {IPots} from "../../../src/interfaces/IPots.sol";
 import {PaymentRequest} from "../../../src/libraries/PaymentRequests.sol";
 import {MockMUSD} from "../../mocks/MockMUSD.sol";
@@ -133,6 +134,36 @@ contract VaultHandler is CommonBase, StdCheats, StdUtils {
             uint256 id
         ) {
             _schedules.push(id);
+        } catch {
+            return;
+        }
+    }
+
+    /// @dev The sender's one-transaction path: a deposit and a signed payment
+    ///      in one multicall. The batch is atomic, so either both happen or
+    ///      neither does; the same ghosts check I2 and I4-I6 as the single calls.
+    function multicallDepositAndExecute(uint256 _amount, uint256 _potSeed, uint256 _payeeSeed, uint256 _payAmount)
+        external
+    {
+        _amount = bound(_amount, 1, 1e24);
+        uint256 potId = pots[_potSeed % 2];
+        PaymentRequest memory req = _newRequest(potId, payees[_payeeSeed % 3], _payAmount);
+        bytes[] memory calls = new bytes[](2);
+        calls[0] = abi.encodeCall(IPots.deposit, (_splitId, _amount));
+        calls[1] = abi.encodeCall(IPolicyEngine.execute, (req, _sign(req, _senderKey)));
+        vm.recordLogs();
+        vm.prank(sender);
+        try vault.multicall(calls) {
+            Vm.Log[] memory logs = vm.getRecordedLogs();
+            uint256 credited = 0;
+            for (uint256 i = 0; i < logs.length; ++i) {
+                if (logs[i].topics[0] == IPots.PotCredited.selector) {
+                    credited += abi.decode(logs[i].data, (uint256));
+                }
+            }
+            if (credited != _amount) ++ghostDepositCreditMismatches;
+            if (++settlements[sender][req.nonce] > 1) ++ghostNonceReuses;
+            _afterPayout(req.potId, req.payee);
         } catch {
             return;
         }

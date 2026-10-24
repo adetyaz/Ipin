@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Multicall} from "@openzeppelin/contracts/utils/Multicall.sol";
 
 import {PolicyEngine} from "./PolicyEngine.sol";
 import {Pots} from "./Pots.sol";
@@ -13,7 +14,10 @@ import {Pots} from "./Pots.sol";
 /// @dev Admin powers: none. No owner, no upgrade, no sweep (S13). The only
 ///      outflows are {execute}, {executeSchedule} (to approved payees) and
 ///      {claimFees} (fees already earned, to the immutable relayer).
-contract Vault is PolicyEngine {
+///      {multicall} (OZ) batches the sender's setup into one transaction. Each
+///      inner call is a self-delegatecall with the caller's msg.sender, so it
+///      passes exactly the checks it would pass alone; it adds no outflow.
+contract Vault is PolicyEngine, Multicall {
     /// @param _musd The MUSD token.
     /// @param _relayerAddress Receives withdrawn fees.
     /// @param _fee Flat fee per settled payment in MUSD base units
