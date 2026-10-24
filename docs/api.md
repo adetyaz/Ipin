@@ -70,6 +70,11 @@ PaymentRequest(uint256 potId,address payee,uint256 amount,bytes32 itemHash,uint2
 - `nonce`: any unused uint256 in the sender's namespace (`nonceUsed(sender, nonce)`); use a random
   256-bit value. `expiry`: unix seconds, inclusive.
 - Submit with `execute(request, signature)`. `hashPaymentRequest(request)` returns the digest.
+- Revoke before it settles: the sender calls `invalidateNonce(nonce)` from their own wallet. It
+  acts on `msg.sender`'s namespace only, emits `NonceInvalidated(signer, nonce)`, and reverts
+  `NonceAlreadyUsed` if the nonce was already used or revoked. The relayer should treat
+  `NonceAlreadyUsed` on submit as "settled or revoked" and stop retrying. Added by the security
+  review (docs/security-review.md M-01); the EIP-712 type is unchanged.
 
 ## 3. Relayer HTTP API (relayer ↔ app)
 

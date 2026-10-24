@@ -172,6 +172,15 @@ abstract contract PolicyEngine is EIP712, IPolicyEngine, Pots {
     }
 
     /// @inheritdoc IPolicyEngine
+    function invalidateNonce(uint256 _nonce) external {
+        if (nonceUsed[msg.sender][_nonce]) {
+            revert NonceAlreadyUsed(msg.sender, _nonce);
+        }
+        nonceUsed[msg.sender][_nonce] = true;
+        emit NonceInvalidated(msg.sender, _nonce);
+    }
+
+    /// @inheritdoc IPolicyEngine
     function executeSchedule(uint256 _scheduleId) external nonReentrant {
         Schedule storage schedule = _schedules[_scheduleId];
         if (schedule.potId == 0) revert ScheduleNotFound(_scheduleId);

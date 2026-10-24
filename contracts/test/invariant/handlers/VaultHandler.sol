@@ -114,6 +114,17 @@ contract VaultHandler is CommonBase, StdCheats, StdUtils {
         }
     }
 
+    /// @dev The sender signs a request, revokes it (R3 invalidateNonce), then
+    ///      the relayer submits it anyway. Settling would reuse a nonce (I4).
+    function revokeThenExecute(uint256 _potSeed, uint256 _payeeSeed, uint256 _amount) external {
+        PaymentRequest memory req = _newRequest(pots[_potSeed % 2], payees[_payeeSeed % 3], _amount);
+        bytes memory sig = _sign(req, _senderKey);
+        vm.prank(sender);
+        vault.invalidateNonce(req.nonce);
+        ++settlements[sender][req.nonce];
+        _tryExecute(req, sig);
+    }
+
     function createSchedule(uint256 _potSeed, uint256 _payeeSeed, uint256 _amount) external {
         _amount = bound(_amount, 1, 100e18);
         uint64 start = uint64(vm.getBlockTimestamp());

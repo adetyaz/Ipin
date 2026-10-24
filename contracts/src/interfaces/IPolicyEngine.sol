@@ -43,6 +43,9 @@ interface IPolicyEngine {
     event PaymentSettled(
         uint256 indexed potId, address indexed payee, uint256 indexed nonce, uint256 amount, bytes32 itemHash
     );
+    /// @notice `signer` revoked `nonce`: any request signed with it can no
+    ///         longer settle (R3).
+    event NonceInvalidated(address indexed signer, uint256 indexed nonce);
     event ScheduleCreated(
         uint256 indexed scheduleId,
         uint256 indexed potId,
@@ -138,6 +141,16 @@ interface IPolicyEngine {
     /// @param _request The request the sender signed.
     /// @param _signature The sender's signature over {hashPaymentRequest}.
     function execute(PaymentRequest calldata _request, bytes calldata _signature) external;
+
+    /// @notice Revoke a request you signed before it settles or expires, by
+    ///         marking its nonce used in your own namespace.
+    /// @dev R3, I4. Acts on `msg.sender`'s namespace only, so it is
+    ///      sender-only by construction: nobody can cancel another signer's
+    ///      request. A smart-account sender calls it from the account.
+    ///      Reverts with {NonceAlreadyUsed} if the nonce is already used.
+    ///      Moves no money.
+    /// @param _nonce The nonce of the signed request to revoke.
+    function invalidateNonce(uint256 _nonce) external;
 
     /// @notice Create a recurring allowance from the pot to an approved payee.
     /// @dev R9. Pot owner only. Creating it is the sender's approval for every
