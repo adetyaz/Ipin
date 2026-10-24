@@ -217,3 +217,21 @@ error message.
 
 At `54a9a3c`, all 80 tests passed with 0 skipped: 10,000 fuzz runs per fuzz test, and I1-I6 at
 1024 runs × depth 256.
+
+## Addendum: multicall (2026-10-24, after the review)
+
+Change: `Vault is PolicyEngine, Multicall` (OpenZeppelin 5.7.0 `Multicall`, branch `feat/multicall`)
+so the sender's setup is one transaction. Reviewed by an AI agent (Claude); internal, not an audit.
+
+| Area | Finding |
+| --- | --- |
+| Caller identity | Each inner call is a `delegatecall` to the Vault itself, so `msg.sender` is the original caller. Every owner check applies as it would for a single call. Tested: `test_I5_multicallCannotTouchForeignPot` (7 owner-only calls and a foreign deposit, each refused alone and inside a batch). |
+| `msg.value` reuse | The Vault has no payable function, so value cannot be counted twice across inner calls. Tested: `test_I1_multicallRejectsValue`. |
+| Atomicity | A failing inner call reverts the whole batch, including pots and splits created earlier in it. Tested: `test_R2_multicallRevertsAtomically`, `test_R2_multicallRevertsWhenPredictedPotIdTaken`. |
+| Signatures and nonces | `execute` inside a batch checks the sender's signature and consumes the nonce exactly as alone. Tested: `test_R8_multicallExecuteChecksSignature`, `test_R3_multicallRejectsReplayedRequestInBatch`. |
+| Reentrancy | Fund-moving functions keep `nonReentrant`. Inner calls run one after another in the same storage, so the guard is entered and left per call. A reentrant call into a guarded function from a token or ERC-1271 callback still reverts. |
+| Selector filtering | The relayer does not filter Vault selectors, so a nested call cannot bypass an off-chain filter. The contract checks every rule itself (T6). |
+| Invariants | New handler action `multicallDepositAndExecute` drives deposit plus signed execute through `multicall`. I1–I6 hold. |
+
+Result: no new findings. Multicall adds no outflow; the only ways money leaves a pot are still
+`execute`, `executeSchedule` and `claimFees`.

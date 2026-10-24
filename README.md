@@ -14,7 +14,7 @@ Wave 2 and beyond (subscriptions, x402 agent budgets, borrow-to-pay checkout, te
 
 ## Start here (for whoever picks this up next)
 
-Status: **building Wave 1 (contracts in progress).**
+Status: **Wave 1 built end to end on Mezo testnet.** What's done and what's left: [docs/status.md](docs/status.md). Walkthrough for judges and the video: [docs/demo.md](docs/demo.md).
 
 1. Read this whole file. The **Scope** section is the source of truth: nothing from Wave 2 goes into Wave 1.
 2. Follow the order: rules document → failing tests → contracts → relayer → adapters → screens.
@@ -97,19 +97,19 @@ The policy engine is the only door money leaves through, so a new use case, spen
 - **Policies:** each rule is a small contract behind one interface, added without redeploying the vault.
 - **Payees:** approved MUSD addresses, the airtime adapter, the MUSD savings vault and (Wave 2) a naira bank-payout partner all sit behind one adapter interface.
 
-### Proposed repo layout (not created yet)
+### Repo layout
 
 ```
 ipin/
   docs/          money-rules.md (write first), security reviews
   contracts/     Foundry: Vault, Pots, PolicyEngine, policies/, adapters/
   relayer/       TypeScript (viem): submits signed requests, runs schedules
-  adapters/      airtime/data provider integration (sandbox in Wave 1)
+  packages/      shared: ABIs, EIP-712 types, amounts (used by relayer and app)
   app/           phone-first web app: sender screens + requester screens
-  scripts/       simulate-month (50 families, 30 days), booksBalance check
+  scripts/       repo tooling; simulate-month (50 families, 30 days) is still to do
 ```
 
-Proposed stack: Solidity 0.8.x + Foundry + OpenZeppelin, TypeScript + viem for the relayer, a mobile-first web app (PWA). Mezo is EVM compatible, so Hardhat or Foundry both work.
+Stack: Solidity 0.8.24 + Foundry + OpenZeppelin 5, TypeScript + viem for the relayer, SvelteKit for the phone-first web app (PWA).
 
 ---
 
@@ -233,7 +233,7 @@ Kickoff takeaways: judges use the live product and read the code to check it doe
 
 ## Pitch
 
-**Video (2 min):** hook with the unfinished house (0:00) → the problem (0:15) → sender creates pots (0:30) → site manager requests cement, sender approves, vendor paid (0:45) → upkeep allowance and savings (1:10) → "books balance" (1:25) → same engine for school fees, medical, grants, agents (1:40).
+**Video (2 min):** hook with the unfinished house (0:00) → the problem (0:15) → sender creates pots in one transaction (0:30) → site manager requests cement, sender approves, vendor paid (0:45) → upkeep allowance and a refused request (1:10) → "books balance" (1:25) → same engine for school fees, subscriptions, agents, borrow-to-pay (1:40). Full script: [docs/demo.md](docs/demo.md).
 
 **Deck:** title → problem → the idea → how it works → why Mezo → proof → beyond the house + business model → roadmap and team.
 
