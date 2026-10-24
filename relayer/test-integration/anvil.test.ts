@@ -237,7 +237,7 @@ function makeRelayer() {
       headers: { "Content-Type": "application/json" },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     })
-    return { status: res.status, json: (await res.json()) }
+    return { status: res.status, json: await res.json() }
   }
   return { call, runtime }
 }
