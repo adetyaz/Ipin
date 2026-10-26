@@ -186,6 +186,29 @@ a {
   text-decoration-thickness: 1px;
 }
 
+/* Everything you can click shows the hand cursor, whatever its component
+   styles say; disabled controls say so instead. */
+a[href],
+button,
+summary,
+select,
+label:has(> input[type="radio"]),
+label:has(> input[type="checkbox"]),
+input[type="radio"],
+input[type="checkbox"] {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+
+/* Text links styled without an underline (back links, plain links) get one
+   on hover and keyboard focus, so they read as links. */
+a.back:hover,
+a.back:focus-visible {
+  text-decoration-line: underline;
+}
+
 button,
 input,
 select,

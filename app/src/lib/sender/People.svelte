@@ -46,10 +46,14 @@
   const isRequester = (a: Address) =>
     requesters?.some((r) => r.toLowerCase() === a.toLowerCase()) ?? false
 
-  async function refreshInvites() {
-    invites = sentInvites(potId)
+  function refreshInvites() {
+    // Iterate the local list, never `invites`: reading the state this
+    // function just wrote would make the calling $effect depend on it and
+    // re-run forever (effect_update_depth_exceeded).
+    const list = sentInvites(potId)
+    invites = list
     if (!relayerUrl) return
-    for (const inv of invites) {
+    for (const inv of list) {
       relayer
         .getInvite(inv.code)
         .then((r) => (claimed[inv.code] = r.claimedBy ?? null))
@@ -59,9 +63,9 @@
 
   $effect(() => {
     void potId
-    void refreshInvites()
+    refreshInvites()
     // Pick up a claim made on the requester's phone while this page is open.
-    const t = setInterval(() => void refreshInvites(), 8000)
+    const t = setInterval(refreshInvites, 8000)
     return () => clearInterval(t)
   })
 
@@ -93,7 +97,7 @@
         label: label.trim() || "Requester",
         createdAt: new Date().toISOString(),
       })
-      await refreshInvites()
+      refreshInvites()
     } catch (err) {
       createError =
         err instanceof Error ? err.message : "Couldn't create the invite."
