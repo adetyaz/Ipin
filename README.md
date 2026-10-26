@@ -1,14 +1,23 @@
 # Ìpín: Purpose-Bound Money
 
-**Mezo Buildathon (AKINDO) · Wave 1: Oct 16 – Oct 26, 2026 (deadline 16:00) · We submit Oct 25**
+**Mezo Buildathon (AKINDO) · Wave 1 · Track 2 (Access and Distribution), with Track 1 elements**
 
-Ìpín (working name, Yoruba for "share") lets you send money for a purpose, and makes sure it can only be spent on that purpose. The money waits in MUSD (Mezo's Bitcoin-backed dollar) until it's needed, earns in Mezo's savings vault while it waits, and every cent is provable on-chain.
+Ìpín (working name, Yoruba for "share") lets you send money for a purpose, and makes sure it can only be spent on that purpose. The money waits in MUSD (Mezo's Bitcoin-backed dollar) until it's needed (and, from Wave 2, earns in Mezo's savings vault), and every cent is provable on-chain.
 
 > **One-liner:** You decide what your money is for, not whoever receives it.
 
 Full plan with diagrams: https://claude.ai/code/artifact/105aeb55-658d-427b-be6e-c1a16a736b93
 
 Wave 2 and beyond (subscriptions, x402 agent budgets, borrow-to-pay checkout, templates): [docs/wave2.md](docs/wave2.md)
+
+---
+
+## What it is
+
+Ìpín is purpose-bound money on Mezo. A sender abroad splits MUSD into named pots, such as House and Upkeep, in one transaction. Family or a site manager request items from their phone with no wallet and no gas. The sender approves with one signature, and the vendor is paid directly from the pot, never through the person who asked. Upkeep pays capped monthly allowances automatically. Every payment passes one on-chain policy engine (approved payees, monthly limits, signed approvals), and a live `booksBalance()` check lets anyone verify that the vault covers everything it owes.
+
+- **Live on Mezo testnet:** Vault `0x6da24cb091A69bc3026B233DBdD146cEb3b72727`
+- **Try it:** [docs/demo.md](docs/demo.md) walks through the house story click by click, including what the contract refuses.
 
 ---
 
@@ -63,39 +72,167 @@ The same engine covers school fees, medical bills, small-business stock, grants 
 
 ## Architecture
 
-```
- Funding:   MUSD deposit / Banxa card (W1)   BTC loan, borrow-to-pay (W2)   tokenized stocks (later)
-                              \                    |                    /
-                               v                   v                   v
-                     +-----------------------------------------------+
-                     |  Vault: pots and split rules                  |
-                     +-----------------------------------------------+
-                              |                              |
-                 Relative or site manager (W1)        AI agent (W2)
-                              \                              /
-                               v                            v
-                     +-----------------------------------------------+
-                     |  Policy engine: sender approval, caps,        |
-                     |  approved payees, nonce, expiry               |
-                     +-----------------------------------------------+
-                                           |
-                     +-----------------------------------------------+
-                     |  Relayer and settlement: pays gas in BTC,     |
-                     |  takes a flat MUSD fee                        |
-                     +-----------------------------------------------+
-                        /                  |                   \
- Payees:  Upkeep and airtime (W1)   Vendors and builders     MUSD savings vault
-          allowances, top-ups       MUSD now, naira bank     idle pots earn (W1)
-                                    payout later (W2)
+The policy engine is the only door money leaves through. A new use case, spender or payee is a configuration, never a shortcut.
+
+### System
+
+```mermaid
+flowchart LR
+  subgraph People
+    S["Sender<br/>browser + MetaMask"]
+    R["Requester<br/>phone browser, no wallet"]
+  end
+
+  subgraph App["app/ · SvelteKit PWA (static)"]
+    SS["Sender screens<br/>pots · payees · invites<br/>allowances · approvals"]
+    RS["Requester screens<br/>invite · itemized request"]
+  end
+
+  subgraph Relayer["relayer/ · Hono + viem"]
+    API["HTTP API<br/>/invites · /requests<br/>/approve · /reject"]
+    SCH["Scheduler<br/>every 60 s"]
+    DB[("relayer-db.json<br/>invites + requests")]
+  end
+
+  subgraph Mezo["Mezo testnet"]
+    V["Vault<br/>Pots + PolicyEngine + Multicall"]
+    M["MUSD token"]
+  end
+
+  P["Approved payees<br/>vendors · family"]
+
+  S --> SS
+  R --> RS
+  SS -- "EIP-712 approval,<br/>setup transactions" --> V
+  SS -- "approve / reject" --> API
+  RS -- "signed request<br/>(browser key)" --> API
+  SS -. "reads: pots, events,<br/>booksBalance()" .-> V
+  API --- DB
+  API -- "execute(request, sig)<br/>pays BTC gas" --> V
+  SCH -- "executeSchedule(id)" --> V
+  V -- "MUSD transfer" --> P
+  V <--> M
 ```
 
-The policy engine is the only door money leaves through, so a new use case, spender or payee is a configuration or plug-in, never a shortcut.
+- **Sender** signs everything that changes a pot. Setup goes straight to the Vault from MetaMask; approvals are EIP-712 signatures the relayer submits.
+- **Requester** never holds money or gas. The invite gives their phone a key that can only sign requests; the sender registers it on-chain per pot, and the contract refuses to pay it.
+- **Relayer** is a liveness dependency, not a safety one: it simulates every call before sending, and the Vault re-checks every rule on-chain.
 
-- **Roles:** a requester, a payee and an agent are all a key with permissions on a pot. Only the sender can change rules or approve requests.
-- **Payment request:** one EIP-712 format for every payment: pot, payee, amount, nonce, expiry, plus a running total so metered settlement fits later.
-- **Release modes:** on request (needs the sender's approval signature), on schedule (date and cap checked on-chain), per use (x402 under a sender mandate, Wave 2), borrow to pay (Mezo trove draw plus payment in one transaction, Wave 2).
-- **Policies:** each rule is a small contract behind one interface, added without redeploying the vault.
-- **Payees:** approved MUSD addresses, the airtime adapter, the MUSD savings vault and (Wave 2) a naira bank-payout partner all sit behind one adapter interface.
+### Contracts
+
+```mermaid
+classDiagram
+  direction LR
+  class Pots {
+    <<abstract>>
+    createPot(name, cap)
+    createSplit(potIds, bps, remainderPot)
+    deposit(splitId, amount)
+    depositWithPermit(splitId, amount, permit)
+    booksBalance() bool
+  }
+  class PolicyEngine {
+    <<abstract>>
+    addPayee(potId, payee)
+    removePayee(potId, payee)
+    addRequester(potId, requester)
+    setCap(potId, cap)
+    createSchedule(potId, payee, amount, start, interval)
+    cancelSchedule(scheduleId)
+    execute(PaymentRequest, signature)
+    executeSchedule(scheduleId)
+    invalidateNonce(nonce)
+    claimFees()
+  }
+  class Multicall {
+    multicall(bytes[] calls)
+  }
+  class Vault
+  Pots <|-- PolicyEngine
+  PolicyEngine <|-- Vault
+  Multicall <|-- Vault
+  Pots ..> ReentrancyGuard
+  PolicyEngine ..> EIP712
+  PolicyEngine ..> SignatureChecker
+```
+
+One deployed contract, `Vault is PolicyEngine, Multicall` (ADR-016). No owner, no upgrade, no sweep. The only outflows are `execute` and `executeSchedule` (to approved payees, through `_checkAndDebit`) and `claimFees` (fees already earned, to the immutable relayer address).
+
+Every payment passes the same checks: the payee is approved and is not a requester, the amount is above zero, it fits the pot's limit for the current 30-day period, and the pot covers the amount plus the flat fee. Request-mode payments also need the sender's EIP-712 signature (ECDSA or ERC-1271) over that exact request, with an unused nonce and an unexpired deadline.
+
+### Request → approve → pay
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Bisi as Requester (phone)
+  participant App as App
+  participant Rel as Relayer
+  actor Tunde as Sender (MetaMask)
+  participant Vault as Vault (Mezo)
+  actor Vendor as Vendor Y
+
+  Bisi->>App: 5 × cement at 1.00 MUSD, pay Vendor Y
+  App->>Rel: POST /requests (signed with the browser key)
+  Rel->>Vault: is requester? is payee approved?
+  Rel-->>App: stored, pending
+  Tunde->>App: open Requests
+  App->>Tunde: sign PaymentRequest (EIP-712)
+  Tunde-->>App: signature
+  App->>Rel: POST /requests/:id/approve
+  Rel->>Vault: simulate, then execute(request, signature)
+  Vault->>Vault: checks: signature, nonce, expiry, payee, limit, balance
+  Vault->>Vendor: 5.00 MUSD
+  Vault->>Vault: 0.25 MUSD fee to unclaimedFees
+  Rel-->>App: paid (tx hash)
+  App-->>Bisi: request shows Paid
+```
+
+### One-transaction setup
+
+```mermaid
+sequenceDiagram
+  actor Tunde as Sender (MetaMask)
+  participant App as App
+  participant MUSD as MUSD
+  participant Vault as Vault
+
+  App->>Tunde: sign MUSD permit (free signature)
+  Tunde-->>App: permit signature
+  App->>Vault: multicall([createPot House, createPot Upkeep,<br/>createSplit 75/25, depositWithPermit 10 MUSD])
+  Vault->>MUSD: permit + transferFrom (inside depositWithPermit)
+  Vault-->>App: pots created, split saved, 7.50 / 2.50 credited
+```
+
+Each inner call is a self-delegatecall with the sender's own `msg.sender`, so it passes exactly the checks it would pass alone. If any step fails, the whole batch reverts.
+
+### Where it is going
+
+```mermaid
+flowchart TB
+  subgraph Funding
+    F1["MUSD deposit · Banxa card link (W1)"]
+    F2["Borrow MUSD against BTC (W2)"]
+  end
+  subgraph Spenders
+    S1["Requester: on request (W1)"]
+    S2["Schedule: allowances, subscriptions (W1)"]
+    S3["AI agent: per use, x402 (W2)"]
+  end
+  PE["Vault + PolicyEngine<br/>the only door out"]
+  subgraph Payees
+    P1["Approved MUSD addresses (W1)"]
+    P2["MUSD savings vault for idle pots (W2)"]
+    P3["Naira bank payouts (later)"]
+  end
+  Funding --> PE
+  Spenders --> PE
+  PE --> Payees
+```
+
+- **Payment request:** one EIP-712 format for every payment: pot, payee, amount, item hash, nonce, expiry.
+- **Release modes:** on request (sender's signature), on schedule (date and limit checked on-chain), per use (x402 under a sender mandate, Wave 2), borrow to pay (a Mezo trove draw and a payment in one transaction, Wave 2). Designs: [docs/wave2.md](docs/wave2.md).
+- **Checks:** Wave 1 has one PolicyEngine with built-in checks (ADR-013). Pluggable policies move to Wave 2.
 
 ### Repo layout
 
