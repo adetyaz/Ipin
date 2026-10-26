@@ -1,0 +1,29 @@
+# Render Blueprint for the relayer (New → Blueprint → this repo).
+# The whole repo is deployed: the relayer imports packages/shared and reads
+# deployments/mezo-testnet.json. RELAYER_PRIVATE_KEY is asked for at creation
+# and never stored in git.
+services:
+  - type: web
+    name: ipin-relayer
+    runtime: node
+    # starter keeps the service awake and allows the disk below. On the free
+    # plan, delete the disk block and DATA_DIR: invites and requests are then
+    # lost on restart (on-chain state never is).
+    plan: starter
+    buildCommand: corepack enable && pnpm install --frozen-lockfile
+    startCommand: pnpm --filter relayer start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: APP_URL
+        value: https://ipin-ten.vercel.app
+      - key: DATA_DIR
+        value: /var/data
+      - key: RELAYER_PRIVATE_KEY
+        sync: false
+    disk:
+      name: relayer-data
+      mountPath: /var/data
+      sizeGB: 1
