@@ -81,8 +81,15 @@
   const short = $derived(
     !!pot && fee !== null && request.amount + fee > pot.balance,
   )
+  // Over the limit or short of money would only revert (the relayer simulates
+  // first), so don't ask for a signature the contract will refuse.
   const canApprove = $derived(
-    request.status === "pending" && intact && payeeOk && !!pot,
+    request.status === "pending" &&
+      intact &&
+      payeeOk &&
+      !!pot &&
+      !overCap &&
+      !short,
   )
 
   async function approve() {
