@@ -16,6 +16,7 @@ Wave 2 and beyond (subscriptions, x402 agent budgets, borrow-to-pay checkout, te
 
 Ìpín is purpose-bound money on Mezo. A sender abroad splits MUSD into named pots, such as House and Upkeep, in one transaction. Family or a site manager request items from their phone with no wallet and no gas. The sender approves with one signature, and the vendor is paid directly from the pot, never through the person who asked. Upkeep pays capped monthly allowances automatically. Every payment passes one on-chain policy engine (approved payees, monthly limits, signed approvals), and a live `booksBalance()` check lets anyone verify that the vault covers everything it owes.
 
+- **Live app:** https://ipin-ten.vercel.app
 - **Demo video (2 min):** https://youtu.be/MmmpK6DZjj0
 - **Pitch deck:** [Google Slides](https://docs.google.com/presentation/d/1TV1C-6S-KPhzUcZUcKJrSV19zjBCZ63WyillbbS2ReY/edit?usp=sharing)
 - **Live on Mezo testnet:** Vault [`0x6da24cb091A69bc3026B233DBdD146cEb3b72727`](https://explorer.test.mezo.org/address/0x6da24cb091A69bc3026B233DBdD146cEb3b72727)
@@ -362,7 +363,7 @@ Kickoff takeaways: judges use the live product and read the code to check it doe
 
 ### Submission materials
 
-- [ ] Live testnet link
+- [x] Live testnet link: https://ipin-ten.vercel.app
 - [ ] Public GitHub repo with README, rules document, security review reports and Penny credit
 - [x] Deck: [Google Slides](https://docs.google.com/presentation/d/1TV1C-6S-KPhzUcZUcKJrSV19zjBCZ63WyillbbS2ReY/edit?usp=sharing)
 - [x] Two-minute pitch video: https://youtu.be/MmmpK6DZjj0
