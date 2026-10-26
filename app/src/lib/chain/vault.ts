@@ -212,7 +212,9 @@ const LOG_CHUNK = 10_000n
 
 async function logRanges(): Promise<Array<[bigint, bigint]>> {
   const from = requireDeployments().deployBlock
-  const latest = await publicClient.getBlockNumber()
+  // Uncached: viem reuses the block number for ~4 s by default, so a refresh
+  // right after a write would stop before the block holding its event.
+  const latest = await publicClient.getBlockNumber({ cacheTime: 0 })
   const ranges: Array<[bigint, bigint]> = []
   for (let start = from; start <= latest; start += LOG_CHUNK) {
     const end = start + LOG_CHUNK - 1n
