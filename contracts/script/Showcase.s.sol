@@ -13,8 +13,9 @@ import {PaymentRequest} from "../src/libraries/PaymentRequests.sol";
 /// @notice Runs the whole money path on the deployed Vault so every outflow
 ///         is visible on the explorer: one-transaction setup (multicall), a
 ///         signed request paid to a vendor (execute), a monthly allowance
-///         (createSchedule + executeSchedule) and the relayer's fees
-///         (claimFees). Small amounts; the sender pays its own gas.
+///         (createSchedule + executeSchedule), the relayer's fees (claimFees)
+///         and idle money saved in Mezo's sMUSD and brought back (R10).
+///         Small amounts; the sender pays its own gas.
 /// @dev Env:
 ///      - DEPLOYER_KEY (required): the sender. Holds MUSD and test BTC.
 ///      - DEPLOYMENTS_FILE (default ../deployments/mezo-testnet.json),
@@ -39,6 +40,8 @@ contract Showcase is Script {
     uint256 internal constant _PAYMENT = 1e18;
     uint256 internal constant _ALLOWANCE = 5e17;
     uint64 internal constant _MONTH = 30 days;
+    uint256 internal constant _SAVE = 5e17;
+    uint256 internal constant _UNSAVE = 2e17;
 
     error ShowcaseFailed(string what);
 
@@ -49,9 +52,18 @@ contract Showcase is Script {
     /// @return upkeepLeft Upkeep balance after the 0.5 MUSD allowance + fee.
     /// @return vendor Who the request paid.
     /// @return mama Who the allowance paid.
+    /// @return houseSaved House money held in Mezo's sMUSD (0.3 MUSD).
     function run()
         external
-        returns (uint256 house, uint256 upkeep, uint256 houseLeft, uint256 upkeepLeft, address vendor, address mama)
+        returns (
+            uint256 house,
+            uint256 upkeep,
+            uint256 houseLeft,
+            uint256 upkeepLeft,
+            address vendor,
+            address mama,
+            uint256 houseSaved
+        )
     {
         Ctx memory c = _context();
         house = c.vault.potCount() + 1;
@@ -68,11 +80,16 @@ contract Showcase is Script {
         c.vault.executeSchedule(scheduleId);
         // Fees already earned go to the relayer address.
         c.vault.claimFees();
+        // Idle House money into Mezo's savings vault, part of it back (R10).
+        c.vault.moveToSavings(house, _SAVE);
+        c.vault.withdrawFromSavings(house, _UNSAVE);
         vm.stopBroadcast();
 
         if (c.musd.balanceOf(c.vendor) - vendorBefore != _PAYMENT) revert ShowcaseFailed("vendor");
         if (c.musd.balanceOf(c.mama) - mamaBefore != _ALLOWANCE) revert ShowcaseFailed("allowance");
+        if (c.vault.savedOf(house) != _SAVE - _UNSAVE) revert ShowcaseFailed("savings");
         if (!c.vault.booksBalance()) revert ShowcaseFailed("books");
+        houseSaved = c.vault.savedOf(house);
         (houseLeft, upkeepLeft) = (c.vault.potBalance(house), c.vault.potBalance(upkeep));
         (vendor, mama) = (c.vendor, c.mama);
     }
@@ -101,6 +118,7 @@ contract Showcase is Script {
         c.mama = vm.envOr("MAMA_ADDRESS", vm.addr(uint256(keccak256("ipin-showcase-mama"))));
         c.amount = vm.envOr("SHOWCASE_DEPOSIT", _DEFAULT_DEPOSIT);
         if (c.musd.balanceOf(c.sender) < c.amount) revert ShowcaseFailed("sender needs more MUSD");
+        if (c.vault.savingsRate() == address(0)) revert ShowcaseFailed("vault has no savings: redeploy");
     }
 
     function _setupCalls(

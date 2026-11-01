@@ -1,7 +1,7 @@
 # CLAUDE.md — agent instructions for Ìpín
 
 Ìpín is purpose-bound money on Mezo: a sender funds pots in MUSD, and money leaves a pot only to
-approved payees, within caps, via signed requests or schedules. Mezo Buildathon Wave 1, submit Oct 25.
+approved payees, within caps, via signed requests or schedules. Mezo Buildathon: Wave 1 submitted; Wave 2 builds Nov 2–15.
 **README.md is the source of truth** (Scope, money rules R1–R10, invariants I1–I6, Mezo reference).
 
 Read before writing code: `README.md` → `docs/money-rules.md` → `CODING_STANDARDS.md` → `docs/decisions.md`.
@@ -33,8 +33,9 @@ Mezo testnet RPC alias: `--rpc-url mezo_testnet`.
 
 ## Non-negotiables
 
-1. **Wave 1 scope only.** Build only what the README Scope table lists under Wave 1. Wave 2 items
-   (x402, agents, naira payouts, multiple senders, Base) are out — don't stub them in either.
+1. **Wave 2 scope.** Build only what the README Scope table lists under Wave 1 or Wave 2. Wave 2
+   priorities after Wave 1 judging: R10 savings in Mezo's sMUSD, then R13 borrow-to-pay through
+   Mezo's BorrowerOperations (docs/wave2.md). "Later" items are out — don't stub them in either.
 2. **One path for money:** signed request (or on-chain schedule) → PolicyEngine → settlement.
    No function moves user funds out of a pot without passing the PolicyEngine. No "admin" or
    "emergency" shortcut, no special case for a use case, no test-only bypass in `src/`.

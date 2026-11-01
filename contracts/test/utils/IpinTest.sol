@@ -6,15 +6,17 @@ import {Test} from "forge-std/Test.sol";
 import {Vault} from "../../src/Vault.sol";
 import {PaymentRequest} from "../../src/libraries/PaymentRequests.sol";
 import {MockMUSD} from "../mocks/MockMUSD.sol";
+import {MockSavingsRate} from "../mocks/MockSavingsRate.sol";
 
-/// @notice Shared fixture: MockMUSD, one Vault, a funded _sender, a relayer,
-///         a payee and a requester.
+/// @notice Shared fixture: MockMUSD, a mock sMUSD savings vault, one Vault, a
+///         funded _sender, a relayer, a payee and a requester.
 abstract contract IpinTest is Test {
     uint16 internal constant _BPS = 10_000;
     uint256 internal constant _FEE = 25e16; // ADR-002
     uint256 internal constant _CAP = 1000e18;
 
     MockMUSD internal _musd;
+    MockSavingsRate internal _savings;
     Vault internal _vault;
 
     address internal _sender;
@@ -29,7 +31,8 @@ abstract contract IpinTest is Test {
     function setUp() public virtual {
         _musd = new MockMUSD();
         _relayer = makeAddr("relayer");
-        _vault = new Vault(_musd, _relayer, _FEE);
+        _savings = new MockSavingsRate(_musd);
+        _vault = new Vault(_musd, _relayer, _FEE, address(_savings));
         (_sender, _senderKey) = makeAddrAndKey("sender");
         (_requester, _requesterKey) = makeAddrAndKey("requester");
         _payee = makeAddr("payee");

@@ -5,29 +5,45 @@ import {Test} from "forge-std/Test.sol";
 
 import {Vault} from "../../src/Vault.sol";
 import {MockMUSD} from "../mocks/MockMUSD.sol";
+import {MockSavingsRate} from "../mocks/MockSavingsRate.sol";
 import {VaultHandler} from "./handlers/VaultHandler.sol";
 
 /// @notice I1-I6 hold after every handler call (docs/money-rules.md).
 contract VaultInvariantsTest is Test {
     MockMUSD internal _musd;
+    MockSavingsRate internal _savings;
     Vault internal _vault;
     VaultHandler internal _handler;
 
     function setUp() public {
         address relayer = makeAddr("inv-relayer");
         _musd = new MockMUSD();
-        _vault = new Vault(_musd, relayer, 25e16);
-        _handler = new VaultHandler(_vault, _musd, relayer);
+        _savings = new MockSavingsRate(_musd);
+        _vault = new Vault(_musd, relayer, 25e16, address(_savings));
+        _handler = new VaultHandler(_vault, _musd, _savings, relayer);
         targetContract(address(_handler));
     }
 
     function invariant_I1_booksBalance() public view {
         assertTrue(_vault.booksBalance());
-        assertEq(_vault.surplus(), _handler.ghostDonations(), "surplus == direct transfers");
+        // Surplus is exactly the donations plus harvested yield not yet
+        // added to a pot balance: no credit is lost or invented (R10 too).
+        uint256 owedYield = _vault.totalYieldHarvested() - _vault.totalYieldCredited();
+        assertEq(_vault.surplus(), _handler.ghostDonations() + owedYield, "surplus == donations + owed yield");
         assertEq(
-            _musd.balanceOf(address(_vault)),
-            _vault.totalPotBalance() + _vault.unclaimedFees() + _handler.ghostDonations(),
+            _musd.balanceOf(address(_vault)) + _savings.balanceOf(address(_vault)),
+            _vault.totalPotBalance() + _vault.totalSaved() + _vault.unclaimedFees() + _handler.ghostDonations()
+                + owedYield,
             "assets == liabilities + surplus"
+        );
+        assertEq(_savings.balanceOf(address(_vault)), _vault.totalSaved(), "sMUSD == what pots saved");
+        assertEq(
+            _vault.savedOf(_handler.pots(0)) + _vault.savedOf(_handler.pots(1)), _vault.totalSaved(), "R10 per pot"
+        );
+        assertLe(
+            _vault.pendingYield(_handler.pots(0)) + _vault.pendingYield(_handler.pots(1)),
+            owedYield,
+            "R10 no over-credit"
         );
     }
 

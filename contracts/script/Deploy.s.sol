@@ -14,15 +14,20 @@ import {Vault} from "../src/Vault.sol";
 ///      - MUSD_ADDRESS (default: Mezo testnet MUSD from the README),
 ///      - RELAYER_ADDRESS (required): receives fees,
 ///      - FEE_AMOUNT (default 0.25e18, ADR-002; 0 < fee <= 1e18),
+///      - SAVINGS_ADDRESS (default: Mezo testnet sMUSD proxy; address(0)
+///        disables savings, R10),
 ///      - DEPLOYMENTS_FILE (default ../deployments/mezo-testnet.json).
 ///      The deployer key comes from the CLI (`--private-key`, `--account`).
 ///      Without `--broadcast` the file is written as `*.dry-run.json`.
 contract Deploy is Script {
     address internal constant _TESTNET_MUSD = 0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503;
     uint256 internal constant _DEFAULT_FEE = 25e16;
+    /// @dev MUSDSavingsRate proxy on Mezo testnet (docs/research/mezo.md section 1).
+    address internal constant _TESTNET_SAVINGS = 0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16;
 
     error MusdHasNoCode(address musd);
     error MusdDecimalsNot18(uint8 decimals);
+    error SavingsHasNoCode(address savings);
 
     /// @notice Deploy the vault and write the deployment file.
     /// @return vault The deployed vault.
@@ -30,12 +35,14 @@ contract Deploy is Script {
         address musd = vm.envOr("MUSD_ADDRESS", _TESTNET_MUSD);
         address relayer = vm.envAddress("RELAYER_ADDRESS");
         uint256 fee = vm.envOr("FEE_AMOUNT", _DEFAULT_FEE);
+        address savings = vm.envOr("SAVINGS_ADDRESS", _TESTNET_SAVINGS);
+        if (savings != address(0) && savings.code.length == 0) revert SavingsHasNoCode(savings);
         if (musd.code.length == 0) revert MusdHasNoCode(musd);
         uint8 decimals = IERC20Metadata(musd).decimals();
         if (decimals != 18) revert MusdDecimalsNot18(decimals);
 
         vm.startBroadcast();
-        vault = new Vault(IERC20Metadata(musd), relayer, fee);
+        vault = new Vault(IERC20Metadata(musd), relayer, fee, savings);
         vm.stopBroadcast();
 
         _writeDeployment(musd, address(vault), relayer);

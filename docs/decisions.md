@@ -176,3 +176,22 @@ don't build anything that depends on it) · **superseded**. Append new entries; 
   a second money path.
 - Open: the Wave 2 priority order in `docs/wave2.md` §7 differs from the feature board (which leads
   with naira payouts). The user decides. R11–R13 enter `docs/money-rules.md` only when built.
+
+## ADR-019 Savings (R10): pots save into Mezo's sMUSD, yield by index
+- Status: proposed (2026-11-01, contracts agent; requested by the user after Wave 1 judging asked
+  for real Mezo integration beyond ERC-20 transfers).
+- Decision: a `Savings` module on the Vault (`Vault is PolicyEngine, Savings, Multicall`). The pot
+  owner moves spendable balance into Mezo's `MUSDSavingsRate` (testnet proxy
+  `0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16`) and back; the Vault is the single sMUSD holder and
+  keeps each pot's share. Yield is credited pro rata through an index (as sMUSD itself does):
+  `harvestYield()` (anyone) claims MUSD and raises the index by amount / totalSaved; a pot is
+  credited saved × Δindex when touched. Divisions round down, so pots are never over-credited.
+- Order of operations: move/withdraw harvest first, so yield earned before a change is indexed
+  with the old saved amounts (a late saver never takes it). The harvested amount is only known
+  after `claimYield()` returns, so state updates follow that call; every entry is `nonReentrant`
+  and sMUSD is Mezo's contract. Six forge-lint findings carry one-line justifications.
+- Savings is not an outflow from a pot: I5 is unchanged. I1 counts sMUSD as an asset and savings
+  as owed to pots; harvested-but-uncredited yield is surplus until credited.
+- Consequences: the Vault constructor takes a 4th argument (`address(0)` disables savings), so the
+  Vault is redeployed. sMUSD is upgradeable and its owner can move principal (`setStrategy`): a
+  trust assumption stated in the README.

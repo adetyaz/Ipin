@@ -4,7 +4,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-const CONTRACTS = ["Vault", "IPots", "IPolicyEngine", "IERC20"];
+const CONTRACTS = ["Vault", "IPots", "IPolicyEngine", "ISavings", "IERC20"];
 const OUT = "contracts/out";
 const DEST = "contracts/abi";
 

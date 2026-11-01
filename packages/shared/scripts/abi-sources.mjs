@@ -1,6 +1,6 @@
 // Pure builder shared by gen-abi.mjs and test/abi.test.ts.
-// vaultAbi = IPots ∪ IPolicyEngine ∪ Vault.multicall: Wave 1 deploys one Vault
-// implementing both interfaces (docs/api.md section 1); the interfaces are the
+// vaultAbi = IPots ∪ IPolicyEngine ∪ ISavings ∪ Vault.multicall: one deployed Vault
+// implements all three interfaces (docs/api.md section 1); the interfaces are the
 // source of truth. multicall (OZ) comes from the Vault itself: the sender's
 // one-transaction setup batches calls from both interfaces.
 
@@ -18,6 +18,7 @@ export function buildAbis(read) {
   for (const item of [
     ...read("IPots"),
     ...read("IPolicyEngine"),
+    ...read("ISavings"),
     ...multicall,
   ]) {
     const k = key(item)

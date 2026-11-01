@@ -19,6 +19,7 @@ contract ForkSmoke is Script {
     address internal constant _DEMO_HOLDER = 0x99BD4BDD7A9c22E2a35F09A6Bd17f038D5E5eB87;
     address internal constant _RELAYER = 0x1466F9EB70B79d2b36af7A4A31c45AD9AC861b54;
     uint256 internal constant _FEE = 5e16; // 0.05 MUSD demo fee
+    address internal constant _SAVINGS = 0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16; // sMUSD proxy
 
     error SmokeFailed(string what);
 
@@ -26,7 +27,7 @@ contract ForkSmoke is Script {
     /// @return potLeft Pot balance after paying 5 MUSD plus the fee.
     function run() external returns (uint256 potLeft) {
         IERC20 musd = IERC20(_MUSD);
-        Vault vault = new Vault(musd, _RELAYER, _FEE);
+        Vault vault = new Vault(musd, _RELAYER, _FEE, _SAVINGS);
         (address sender, uint256 senderKey) = makeAddrAndKey("smoke-sender");
         address payee = makeAddr("smoke-vendor");
 

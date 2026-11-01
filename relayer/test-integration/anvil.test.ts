@@ -20,6 +20,7 @@ import {
   parseAbi,
   parseSignature,
   stringToHex,
+  zeroAddress,
 } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
@@ -138,7 +139,7 @@ beforeAll(async () => {
     senderWallet.deployContract({
       abi: v.abi,
       bytecode: v.bytecode,
-      args: [musd, relayer.address, FEE],
+      args: [musd, relayer.address, FEE, zeroAddress],
     }),
   )
   vault = vaultReceipt.contractAddress ?? "0x"

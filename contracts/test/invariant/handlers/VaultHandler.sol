@@ -11,6 +11,7 @@ import {IPolicyEngine} from "../../../src/interfaces/IPolicyEngine.sol";
 import {IPots} from "../../../src/interfaces/IPots.sol";
 import {PaymentRequest} from "../../../src/libraries/PaymentRequests.sol";
 import {MockMUSD} from "../../mocks/MockMUSD.sol";
+import {MockSavingsRate} from "../../mocks/MockSavingsRate.sol";
 
 /// @notice Drives the vault as a sender, a requester, a relayer and an
 ///         attacker, and keeps ghost counters for I1-I6.
@@ -22,6 +23,7 @@ contract VaultHandler is CommonBase, StdCheats, StdUtils {
 
     Vault public vault;
     MockMUSD public musd;
+    MockSavingsRate public savings;
 
     address public sender;
     address public requester;
@@ -51,9 +53,10 @@ contract VaultHandler is CommonBase, StdCheats, StdUtils {
     bytes internal _lastSig;
     bool internal _hasLast;
 
-    constructor(Vault _vault, MockMUSD _musd, address _relayer) {
+    constructor(Vault _vault, MockMUSD _musd, MockSavingsRate _savings, address _relayer) {
         vault = _vault;
         musd = _musd;
+        savings = _savings;
         relayer = _relayer;
         (sender, _senderKey) = makeAddrAndKey("inv-sender");
         (attacker, _attackerKey) = makeAddrAndKey("inv-attacker");
@@ -167,6 +170,35 @@ contract VaultHandler is CommonBase, StdCheats, StdUtils {
         } catch {
             return;
         }
+    }
+
+    /// @dev R10: move part of a pot's spendable balance into sMUSD.
+    function moveToSavings(uint256 _potSeed, uint256 _amount) external {
+        uint256 potId = pots[_potSeed % 2];
+        uint256 balance = vault.potBalance(potId);
+        if (balance == 0) return;
+        _amount = bound(_amount, 1, balance);
+        vm.prank(sender);
+        vault.moveToSavings(potId, _amount);
+    }
+
+    /// @dev R10: bring part of a pot's savings back to the same pot.
+    function withdrawFromSavings(uint256 _potSeed, uint256 _amount) external {
+        uint256 potId = pots[_potSeed % 2];
+        uint256 saved = vault.savedOf(potId);
+        if (saved == 0) return;
+        _amount = bound(_amount, 1, saved);
+        vm.prank(sender);
+        vault.withdrawFromSavings(potId, _amount);
+    }
+
+    /// @dev Protocol yield accrues to the vault's sMUSD position.
+    function addYield(uint256 _amount) external {
+        savings.addYield(address(vault), bound(_amount, 1, 1e21));
+    }
+
+    function harvestYield() external {
+        if (vault.totalSaved() > 0) vault.harvestYield();
     }
 
     // --- Relayer actions ---
