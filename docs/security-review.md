@@ -250,3 +250,18 @@ Change: `Savings` module on the Vault (ADR-019). Reviewed by an AI agent (Claude
 | Trust | sMUSD is an upgradeable proxy whose owner can change its strategy (`setStrategy`). Saved principal depends on Mezo's vault; stated in the README. |
 
 Result: no new findings.
+
+## Addendum: borrow-to-pay (R13, 2026-11-01)
+
+Change: `Checkout` module (ADR-020). Reviewed by an AI agent (Claude); internal, not an audit.
+
+| Area | Finding |
+| --- | --- |
+| One path | The payment runs `_settle`, the same code as `execute`: expiry, nonce, sender signature, approved payee, cap, balance. Tested: `test_R13_paymentNeedsSenderApproval`, `test_R13_capStillApplies`, `test_R13_failedPaymentBorrowsNothing`. |
+| Whose trove | The borrower is always the pot owner; Mezo verifies the borrow signature for that address, so nobody can borrow into another person's pot or on another person's trove (`test_R13_onlyPotOwnerBorrowsIntoPot`). |
+| Amount | The loan must equal amount + fee (`test_R13_borrowsExactlyAmountPlusFee`); the pot is credited only MUSD that arrived (`BorrowShortfall`). |
+| Atomicity | Any failure reverts the whole call, including the mint: no debt without payment. |
+| Reentrancy | The mint precedes the credit by design; `borrowAndPay` is `nonReentrant` and Mezo's contract is the only external call before `_settle`. |
+| Invariants | `borrowAndPay` is a handler action; I1–I6 hold. |
+
+Result: no new findings. User risk to disclose: borrowing increases trove debt and liquidation risk.

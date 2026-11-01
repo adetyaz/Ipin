@@ -139,7 +139,7 @@ beforeAll(async () => {
     senderWallet.deployContract({
       abi: v.abi,
       bytecode: v.bytecode,
-      args: [musd, relayer.address, FEE, zeroAddress],
+      args: [musd, relayer.address, FEE, zeroAddress, zeroAddress],
     }),
   )
   vault = vaultReceipt.contractAddress ?? "0x"

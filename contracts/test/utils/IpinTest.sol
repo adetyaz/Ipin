@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 
 import {Vault} from "../../src/Vault.sol";
 import {PaymentRequest} from "../../src/libraries/PaymentRequests.sol";
+import {MockBorrowerOperationsSignatures} from "../mocks/MockBorrowerOperationsSignatures.sol";
 import {MockMUSD} from "../mocks/MockMUSD.sol";
 import {MockSavingsRate} from "../mocks/MockSavingsRate.sol";
 
@@ -17,6 +18,7 @@ abstract contract IpinTest is Test {
 
     MockMUSD internal _musd;
     MockSavingsRate internal _savings;
+    MockBorrowerOperationsSignatures internal _borrowerOps;
     Vault internal _vault;
 
     address internal _sender;
@@ -32,7 +34,8 @@ abstract contract IpinTest is Test {
         _musd = new MockMUSD();
         _relayer = makeAddr("relayer");
         _savings = new MockSavingsRate(_musd);
-        _vault = new Vault(_musd, _relayer, _FEE, address(_savings));
+        _borrowerOps = new MockBorrowerOperationsSignatures(_musd);
+        _vault = new Vault(_musd, _relayer, _FEE, address(_savings), address(_borrowerOps));
         (_sender, _senderKey) = makeAddrAndKey("sender");
         (_requester, _requesterKey) = makeAddrAndKey("requester");
         _payee = makeAddr("payee");

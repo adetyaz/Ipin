@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import {Test} from "forge-std/Test.sol";
 
 import {Vault} from "../../src/Vault.sol";
+import {MockBorrowerOperationsSignatures} from "../mocks/MockBorrowerOperationsSignatures.sol";
 import {MockMUSD} from "../mocks/MockMUSD.sol";
 import {MockSavingsRate} from "../mocks/MockSavingsRate.sol";
 import {VaultHandler} from "./handlers/VaultHandler.sol";
@@ -19,8 +20,9 @@ contract VaultInvariantsTest is Test {
         address relayer = makeAddr("inv-relayer");
         _musd = new MockMUSD();
         _savings = new MockSavingsRate(_musd);
-        _vault = new Vault(_musd, relayer, 25e16, address(_savings));
-        _handler = new VaultHandler(_vault, _musd, _savings, relayer);
+        MockBorrowerOperationsSignatures borrowerOps = new MockBorrowerOperationsSignatures(_musd);
+        _vault = new Vault(_musd, relayer, 25e16, address(_savings), address(borrowerOps));
+        _handler = new VaultHandler(_vault, _musd, _savings, borrowerOps, relayer);
         targetContract(address(_handler));
     }
 

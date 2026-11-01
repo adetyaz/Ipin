@@ -144,31 +144,7 @@ abstract contract PolicyEngine is EIP712, IPolicyEngine, Pots {
 
     /// @inheritdoc IPolicyEngine
     function execute(PaymentRequest calldata _request, bytes calldata _signature) external nonReentrant {
-        uint256 potId = _request.potId;
-        address signer = _pots[potId].owner;
-        if (signer == address(0)) revert PotNotFound(potId);
-        // R3: the expiry is a wall-clock deadline chosen by the sender.
-        // forge-lint: disable-next-line(block-timestamp) R3 expiry is a wall-clock deadline; minutes of drift are fine.
-        if (block.timestamp > _request.expiry) {
-            revert RequestExpired(_request.expiry, block.timestamp);
-        }
-        if (nonceUsed[signer][_request.nonce]) {
-            revert NonceAlreadyUsed(signer, _request.nonce);
-        }
-        bytes32 digest = _hashTypedDataV4(PaymentRequests.hash(_request));
-        // R8: EOA (non-malleable ECDSA) or ERC-1271 smart-account sender.
-        if (!SignatureChecker.isValidSignatureNow(signer, digest, _signature)) {
-            revert InvalidSignature(potId, signer);
-        }
-
-        // Effects: nonce consumed before the external transfer (S14).
-        nonceUsed[signer][_request.nonce] = true;
-        _checkAndDebit(potId, _request.payee, _request.amount);
-        // forge-lint: disable-next-line(reentrancy-events) only prior call is SignatureChecker's ERC-1271 staticcall.
-        emit PaymentSettled(potId, _request.payee, _request.nonce, _request.amount, _request.itemHash);
-
-        // Interaction last. A failed transfer reverts everything (R6 Wave 1).
-        musd.safeTransfer(_request.payee, _request.amount);
+        _settle(_request, _signature);
     }
 
     /// @inheritdoc IPolicyEngine
@@ -255,6 +231,37 @@ abstract contract PolicyEngine is EIP712, IPolicyEngine, Pots {
     }
 
     // --- Helper functions ---
+
+    /// @dev A request-mode payment: R3 expiry and nonce, R8 sender signature,
+    ///      then {_checkAndDebit} and the transfer. Shared by {execute} and
+    ///      borrow-to-pay (R13); every caller is `nonReentrant`.
+    function _settle(PaymentRequest calldata _request, bytes calldata _signature) internal {
+        uint256 potId = _request.potId;
+        address signer = _pots[potId].owner;
+        if (signer == address(0)) revert PotNotFound(potId);
+        // R3: the expiry is a wall-clock deadline chosen by the sender.
+        // forge-lint: disable-next-line(block-timestamp) R3 expiry is a wall-clock deadline; minutes of drift are fine.
+        if (block.timestamp > _request.expiry) {
+            revert RequestExpired(_request.expiry, block.timestamp);
+        }
+        if (nonceUsed[signer][_request.nonce]) {
+            revert NonceAlreadyUsed(signer, _request.nonce);
+        }
+        bytes32 digest = _hashTypedDataV4(PaymentRequests.hash(_request));
+        // R8: EOA (non-malleable ECDSA) or ERC-1271 smart-account sender.
+        if (!SignatureChecker.isValidSignatureNow(signer, digest, _signature)) {
+            revert InvalidSignature(potId, signer);
+        }
+
+        // Effects: nonce consumed before the external transfer (S14).
+        nonceUsed[signer][_request.nonce] = true;
+        _checkAndDebit(potId, _request.payee, _request.amount);
+        // forge-lint: disable-next-line(reentrancy-events) only prior call is SignatureChecker's ERC-1271 staticcall.
+        emit PaymentSettled(potId, _request.payee, _request.nonce, _request.amount, _request.itemHash);
+
+        // Interaction last. A failed transfer reverts everything (R6 Wave 1).
+        musd.safeTransfer(_request.payee, _request.amount);
+    }
 
     /// @dev The policy checks and the ledger effects shared by every payment.
     ///      R4 (flat fee from the same pot), R7/I3 (cap counts `_amount`
