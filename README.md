@@ -22,6 +22,13 @@ Wave 2 and beyond (subscriptions, x402 agent budgets, borrow-to-pay checkout, te
 - **Live on Mezo testnet:** Vault [`0x6da24cb091A69bc3026B233DBdD146cEb3b72727`](https://explorer.test.mezo.org/address/0x6da24cb091A69bc3026B233DBdD146cEb3b72727)
 - **Try it:** [docs/demo.md](docs/demo.md) walks through the house story click by click, including what the contract refuses.
 
+### Mezo integration
+
+- **MUSD** is the unit of every pot, rule and payment (18-decimal base units, EIP-2612 permit for one-transaction setup).
+- **MUSD savings vault (sMUSD):** idle pot money is deposited into Mezo's `MUSDSavingsRate` from the Vault and withdrawn back to the same pot; yield is credited to pots pro rata (R10, ADR-019). Testnet sMUSD: `0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16`. Trust assumption: sMUSD is upgradeable and its owner can change its strategy.
+- **Borrow-to-pay (Wave 2, in progress):** borrow MUSD against BTC through Mezo's `BorrowerOperationsSignatures` and pay a merchant in the same transaction (R13, [docs/wave2.md](docs/wave2.md)).
+- **Gas in BTC:** the relayer pays BTC gas so requesters need no wallet, and takes a flat MUSD fee.
+
 ---
 
 ## Start here (for whoever picks this up next)
@@ -293,7 +300,7 @@ Write these into `docs/money-rules.md` before any contract code.
 | Requesters and spenders | Relative or site manager (phone web app) | AI agent with a mandate (x402); merchant subscribe links | Telegram or WhatsApp bot |
 | Payees | Approved MUSD addresses; airtime and data adapter (sandbox) | Naira bank payouts to vendors (partner, mainnet); airtime adapter as an x402 endpoint | More countries |
 | Funding | MUSD deposit; Banxa card on-ramp link | Borrow MUSD against BTC (Mezo troves); recurring top-ups from the sender | Tokenized stocks as collateral (BNB Chain or Ethereum) |
-| Savings | Idle pots in the MUSD savings vault (if its contract is callable) | Yield shown per pot | — |
+| Savings | — | Idle pots in Mezo's MUSD savings vault (sMUSD), yield credited per pot (built) | — |
 | Proof | Invariant tests, simulated month, booksBalance() | Statement export for senders | Third-party audit |
 | Chain | Mezo testnet | Mezo mainnet | Base, BNB Chain |
 

@@ -13,6 +13,7 @@
   import Allowance from "#/sender/Allowance.svelte"
   import Payees from "#/sender/Payees.svelte"
   import People from "#/sender/People.svelte"
+  import Savings from "#/sender/Savings.svelte"
   import Statement from "#/sender/Statement.svelte"
   import AdireSwatch from "#/ui/AdireSwatch.svelte"
   import Amount from "#/ui/Amount.svelte"
@@ -172,6 +173,12 @@
           <Allowance
             potId={pot.id}
             payees={payees ?? []}
+            {refresh}
+            onchange={bump}
+          />
+          <Savings
+            potId={pot.id}
+            balance={pot.balance}
             {refresh}
             onchange={bump}
           />

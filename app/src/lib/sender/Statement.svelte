@@ -32,11 +32,17 @@
         return `Allowance to ${payeeLabel(e.payee) ?? shortAddress(e.payee)}`
       case "fee":
         return "Relayer fee"
+      case "saved":
+        return "Moved to savings (Mezo sMUSD)"
+      case "unsaved":
+        return "Back from savings"
+      case "yield":
+        return "Savings yield"
     }
   }
 
-  const sign = (e: StatementEntry) =>
-    e.kind === "credit" ? e.amount : -e.amount
+  const IN = new Set<StatementEntry["kind"]>(["credit", "unsaved", "yield"])
+  const sign = (e: StatementEntry) => (IN.has(e.kind) ? e.amount : -e.amount)
 </script>
 
 <section class="card sec" aria-labelledby="stmt-h">
@@ -68,7 +74,7 @@
                   : `Block ${e.block}`}</span
               >
             </span>
-            <span class="amt num" class:in={e.kind === "credit"}
+            <span class="amt num" class:in={IN.has(e.kind)}
               >{formatUsd(sign(e), { sign: true })}</span
             >
           </a>
@@ -134,6 +140,11 @@
   }
   .kind.fee {
     background: var(--line-strong);
+  }
+  .kind.saved,
+  .kind.unsaved,
+  .kind.yield {
+    background: var(--palm);
   }
   .what {
     display: flex;

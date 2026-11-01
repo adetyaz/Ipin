@@ -9,6 +9,7 @@ import {
   parseAbi,
   parseSignature,
   stringToHex,
+  zeroAddress,
 } from "viem"
 
 import { chain, publicClient } from "./client"
@@ -65,6 +66,19 @@ export type StatementEntry =
       time?: bigint
     }
   | { kind: "fee"; amount: bigint; block: bigint; tx: Hex; time?: bigint }
+  | { kind: "saved"; amount: bigint; block: bigint; tx: Hex; time?: bigint }
+  | { kind: "unsaved"; amount: bigint; block: bigint; tx: Hex; time?: bigint }
+  | { kind: "yield"; amount: bigint; block: bigint; tx: Hex; time?: bigint }
+
+export interface SavingsView {
+  /** False when the Vault was deployed without a savings vault. */
+  enabled: boolean
+  /** Mezo's MUSDSavingsRate (sMUSD) address. */
+  rate: Address
+  saved: bigint
+  /** Harvested yield owed to the pot, added on its next savings move. */
+  pending: bigint
+}
 
 // ---------- Names ----------
 
@@ -323,28 +337,44 @@ export async function readStatement(potId: bigint): Promise<StatementEntry[]> {
   const entries: Array<StatementEntry & { index: number }> = []
   for (const [fromBlock, toBlock] of ranges) {
     const common = { address, abi: vaultAbi, fromBlock, toBlock } as const
-    const [credits, payments, allowances, fees] = await Promise.all([
-      publicClient.getContractEvents({
-        ...common,
-        eventName: "PotCredited",
-        args: { potId },
-      }),
-      publicClient.getContractEvents({
-        ...common,
-        eventName: "PaymentSettled",
-        args: { potId },
-      }),
-      publicClient.getContractEvents({
-        ...common,
-        eventName: "ScheduledPaymentSettled",
-        args: { potId },
-      }),
-      publicClient.getContractEvents({
-        ...common,
-        eventName: "FeeCharged",
-        args: { potId },
-      }),
-    ])
+    const [credits, payments, allowances, fees, saved, unsaved, yields] =
+      await Promise.all([
+        publicClient.getContractEvents({
+          ...common,
+          eventName: "PotCredited",
+          args: { potId },
+        }),
+        publicClient.getContractEvents({
+          ...common,
+          eventName: "PaymentSettled",
+          args: { potId },
+        }),
+        publicClient.getContractEvents({
+          ...common,
+          eventName: "ScheduledPaymentSettled",
+          args: { potId },
+        }),
+        publicClient.getContractEvents({
+          ...common,
+          eventName: "FeeCharged",
+          args: { potId },
+        }),
+        publicClient.getContractEvents({
+          ...common,
+          eventName: "SavingsDeposited",
+          args: { potId },
+        }),
+        publicClient.getContractEvents({
+          ...common,
+          eventName: "SavingsWithdrawn",
+          args: { potId },
+        }),
+        publicClient.getContractEvents({
+          ...common,
+          eventName: "YieldCredited",
+          args: { potId },
+        }),
+      ])
     for (const l of credits) {
       entries.push({
         kind: "credit",
@@ -384,6 +414,21 @@ export async function readStatement(potId: bigint): Promise<StatementEntry[]> {
         index: l.logIndex,
       })
     }
+    for (const [kind, logs] of [
+      ["saved", saved],
+      ["unsaved", unsaved],
+      ["yield", yields],
+    ] as const) {
+      for (const l of logs) {
+        entries.push({
+          kind,
+          amount: l.args.amount ?? 0n,
+          block: l.blockNumber,
+          tx: l.transactionHash,
+          index: l.logIndex,
+        })
+      }
+    }
   }
   entries.sort((a, b) =>
     a.block === b.block ? b.index - a.index : a.block > b.block ? -1 : 1,
@@ -402,6 +447,34 @@ export async function readStatement(potId: bigint): Promise<StatementEntry[]> {
     const time = times.get(e.block)
     return time === undefined ? e : { ...e, time }
   })
+}
+
+/** A pot's savings in Mezo's MUSD savings vault (R10). */
+export async function readSavings(potId: bigint): Promise<SavingsView> {
+  const address = vault()
+  const rate = await publicClient.readContract({
+    address,
+    abi: vaultAbi,
+    functionName: "savingsRate",
+  })
+  if (rate === zeroAddress) {
+    return { enabled: false, rate, saved: 0n, pending: 0n }
+  }
+  const [saved, pending] = await Promise.all([
+    publicClient.readContract({
+      address,
+      abi: vaultAbi,
+      functionName: "savedOf",
+      args: [potId],
+    }),
+    publicClient.readContract({
+      address,
+      abi: vaultAbi,
+      functionName: "pendingYield",
+      args: [potId],
+    }),
+  ])
+  return { enabled: true, rate, saved, pending }
 }
 
 // ---------- Writes (sender, from MetaMask) ----------
@@ -455,6 +528,11 @@ export const vaultWrites = {
     interval: bigint,
   ) => send("createSchedule", [potId, payee, amount, start, interval]),
   cancelSchedule: (id: bigint) => send("cancelSchedule", [id]),
+  moveToSavings: (potId: bigint, amount: bigint) =>
+    send("moveToSavings", [potId, amount]),
+  withdrawFromSavings: (potId: bigint, amount: bigint) =>
+    send("withdrawFromSavings", [potId, amount]),
+  harvestYield: () => send("harvestYield", []),
   /** Cancel a signed approval that was never submitted (M-01). */
   invalidateNonce: (nonce: bigint) => send("invalidateNonce", [nonce]),
 }
@@ -650,6 +728,10 @@ const REVERT_MESSAGES: Record<string, string> = {
   ScheduleNotActive: "That allowance was cancelled.",
   ScheduleNotDue: "That allowance isn't due yet.",
   IntervalZero: "Choose how often the allowance pays.",
+  InsufficientBalance: "The pot doesn't have that much to save.",
+  InsufficientSaved: "The pot doesn't have that much in savings.",
+  SavingsDisabled: "Savings isn't turned on for this vault.",
+  SavingsShortfall: "The savings vault returned less than expected.",
   ERC20InsufficientBalance: "Your wallet doesn't have enough MUSD.",
   ERC20InsufficientAllowance:
     "The vault isn't allowed to take that much MUSD yet.",

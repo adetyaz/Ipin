@@ -235,3 +235,18 @@ so the sender's setup is one transaction. Reviewed by an AI agent (Claude); inte
 
 Result: no new findings. Multicall adds no outflow; the only ways money leaves a pot are still
 `execute`, `executeSchedule` and `claimFees`.
+
+## Addendum: savings in Mezo's sMUSD (R10, 2026-11-01)
+
+Change: `Savings` module on the Vault (ADR-019). Reviewed by an AI agent (Claude); internal, not an audit.
+
+| Area | Finding |
+| --- | --- |
+| Outflows | Savings moves MUSD between the Vault and Mezo's `MUSDSavingsRate`, always credited to the same pot. No new path pays an address other than an approved payee (I5 unchanged). |
+| Access | `moveToSavings` / `withdrawFromSavings` are pot-owner only. `harvestYield` is open to anyone and only adds to pots. Tested: `test_R10_onlyOwnerMovesSavings`. |
+| Accounting (I1) | Assets count the sMUSD position (1:1 principal); liabilities count savings. Yield is credited by index with rounding down, so pots are never over-credited (`testFuzz_R10_yieldNeverOverCredited`, invariant handler). Harvested-but-uncredited yield is surplus. |
+| Order of operations | Moves harvest first, so a late saver never takes earlier yield (`test_R10_newSaverDoesNotTakeEarlierYield`). The harvested amount is only known after `claimYield()`, so state updates follow that call; every entry is `nonReentrant`. Six forge-lint findings are annotated in `Savings.sol`. |
+| Short return | `withdrawFromSavings` reverts with `SavingsShortfall` if the vault returns less than the principal asked for, so a pot is never credited money that didn't arrive. |
+| Trust | sMUSD is an upgradeable proxy whose owner can change its strategy (`setStrategy`). Saved principal depends on Mezo's vault; stated in the README. |
+
+Result: no new findings.
