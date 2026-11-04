@@ -9,13 +9,19 @@ import {IBorrowerOperationsSignatures} from "../src/interfaces/IBorrowerOperatio
 import {ICheckout} from "../src/interfaces/ICheckout.sol";
 import {PaymentRequest} from "../src/libraries/PaymentRequests.sol";
 
+/// @dev Mezo's TroveManager: 1 = active trove.
+interface ITroveManagerStatus {
+    function getTroveStatus(address _borrower) external view returns (uint256);
+}
+
 /// @title BorrowToPay
 /// @notice One real R13 checkout on Mezo testnet: a pot with no money pays a
 ///         merchant 1 MUSD with MUSD borrowed against the sender's BTC trove,
 ///         in one transaction (Mezo's withdrawMUSDWithSignature + execute).
 /// @dev Needs an open trove for the DEPLOYER_KEY address (borrow once at
 ///      https://testnet.mezo.org). Env: DEPLOYER_KEY, DEPLOYMENTS_FILE,
-///      MERCHANT_ADDRESS (default: a fixed demo address).
+///      MERCHANT_ADDRESS (default: a fixed demo address), TROVE_MANAGER_ADDRESS
+///      (default: Mezo testnet TroveManager).
 ///      `forge script script/BorrowToPay.s.sol --rpc-url mezo_testnet --broadcast`
 contract BorrowToPay is Script {
     bytes32 private constant _DOMAIN_TYPEHASH =
@@ -24,6 +30,7 @@ contract BorrowToPay is Script {
         keccak256("WithdrawMUSD(uint256 amount,address borrower,address recipient,uint256 nonce,uint256 deadline)");
     uint256 internal constant _PRICE = 1e18;
     uint256 internal constant _CAP = 5e18;
+    address internal constant _TESTNET_TROVE_MANAGER = 0xE47c80e8c23f6B4A1aE41c34837a0599D5D16bb0;
 
     error BorrowToPayFailed(string what);
 
@@ -39,6 +46,10 @@ contract BorrowToPay is Script {
         uint256 key = vm.envUint("DEPLOYER_KEY");
         merchant = vm.envOr("MERCHANT_ADDRESS", vm.addr(uint256(keccak256("ipin-showcase-merchant"))));
         if (vault.borrowerOperations() == address(0)) revert BorrowToPayFailed("vault has no borrow-to-pay: redeploy");
+        address troveManager = vm.envOr("TROVE_MANAGER_ADDRESS", _TESTNET_TROVE_MANAGER);
+        if (ITroveManagerStatus(troveManager).getTroveStatus(vm.addr(key)) != 1) {
+            revert BorrowToPayFailed("no open trove for DEPLOYER_KEY: borrow once at testnet.mezo.org first");
+        }
 
         potId = vault.potCount() + 1;
         borrowed = _PRICE + vault.fee();
