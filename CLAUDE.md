@@ -1,8 +1,10 @@
 # CLAUDE.md — agent instructions for Ìpín
 
 Ìpín is purpose-bound money on Mezo: a sender funds pots in MUSD, and money leaves a pot only to
-approved payees, within caps, via signed requests or schedules. Mezo Buildathon: Wave 1 submitted; Wave 2 builds Nov 2–15.
+approved payees, within caps, via signed requests or schedules. Mezo Buildathon: Wave 1 submitted; Wave 2 builds Nov 2–15 (work on `feat/wave2-mezo-integration`).
 **README.md is the source of truth** (Scope, money rules R1–R10, invariants I1–I6, Mezo reference).
+
+**Current state and next steps: `docs/handoff.md` (read it first).**
 
 Read before writing code: `README.md` → `docs/money-rules.md` → `CODING_STANDARDS.md` → `docs/decisions.md`.
 
