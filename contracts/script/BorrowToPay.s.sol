@@ -45,7 +45,7 @@ contract BorrowToPay is Script {
     /// @return data The `borrowAndPay` calldata, also written to CALLDATA_FILE.
     function run() external returns (uint256 potId, address merchant, uint256 borrowed, bytes memory data) {
         string memory json = vm.readFile(vm.envOr("DEPLOYMENTS_FILE", string("../deployments/mezo-testnet.json")));
-        Vault vault = Vault(vm.parseJsonAddress(json, ".pots"));
+        Vault vault = Vault(payable(vm.parseJsonAddress(json, ".pots")));
         uint256 key = vm.envUint("DEPLOYER_KEY");
         merchant = vm.envOr("MERCHANT_ADDRESS", vm.addr(uint256(keccak256("ipin-showcase-merchant"))));
         if (vault.borrowerOperations() == address(0)) revert BorrowToPayFailed("vault has no borrow-to-pay: redeploy");
@@ -72,7 +72,18 @@ contract BorrowToPay is Script {
         view
         returns (bytes memory)
     {
-        PaymentRequest memory req = PaymentRequest({
+        (ICheckout.Borrow memory loan, PaymentRequest memory req, bytes memory sig) =
+            _checkoutArgs(_vault, _key, _potId, _merchant, _borrowed);
+        return abi.encodeCall(ICheckout.borrowAndPay, (loan, req, sig));
+    }
+
+    /// @dev The signed borrow, the payment request and the sender's signature.
+    function _checkoutArgs(Vault _vault, uint256 _key, uint256 _potId, address _merchant, uint256 _borrowed)
+        internal
+        view
+        returns (ICheckout.Borrow memory loan, PaymentRequest memory req, bytes memory sig)
+    {
+        req = PaymentRequest({
             potId: _potId,
             payee: _merchant,
             amount: _PRICE,
@@ -81,10 +92,8 @@ contract BorrowToPay is Script {
             expiry: vm.getBlockTimestamp() + 1 hours
         });
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_key, _vault.hashPaymentRequest(req));
-        return abi.encodeCall(
-            ICheckout.borrowAndPay,
-            (_loan(_key, _vault.borrowerOperations(), address(_vault), _borrowed), req, abi.encodePacked(r, s, v))
-        );
+        sig = abi.encodePacked(r, s, v);
+        loan = _loan(_key, _vault.borrowerOperations(), address(_vault), _borrowed);
     }
 
     /// @dev The borrower's signature, exactly as Mezo's `_verifySignature` checks it.

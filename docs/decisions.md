@@ -212,3 +212,13 @@ don't build anything that depends on it) · **superseded**. Append new entries; 
   (mezo-org/musd deployments). The borrower needs an open trove; liquidation risk stays theirs.
 - Consequences: the Vault constructor takes a 5th argument (`address(0)` disables it), so the
   Vault is redeployed once more. `execute`'s body moved into internal `_settle` unchanged.
+- Addendum (2026-11-04, found on testnet): Mezo ends every trove adjustment with
+  `ActivePool.sendCollateral(recipient, collChange)`, a `recipient.call{value: 0}("")` even when no
+  BTC moves, reverting "Sending BTC failed" if refused (mezo-org/musd `BorrowerOperations.sol`
+  `_moveTokensAndCollateralfromAdjustment`, `dependencies/SendCollateral.sol`). The Vault had no
+  `receive()`, so every real borrow reverted; the mock had not modelled that call. Fix: the mock now
+  makes it, and `Checkout` has `receive()` accepting only zero value (`NativeBtcNotAccepted`
+  otherwise, since nothing could move BTC out). Forge cannot simulate Mezo borrows (the BTC price
+  oracle is precompile `0x7b7c...0015`), so `script/RehearseBorrowToPay.s.sol` replays a checkout
+  on a fork against Mezo's real contracts with only that oracle stubbed, before any redeploy.
+  Needs one more Vault redeploy.

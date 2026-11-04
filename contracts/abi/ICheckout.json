@@ -155,5 +155,10 @@
     "type": "error",
     "name": "BorrowingDisabled",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NativeBtcNotAccepted",
+    "inputs": []
   }
 ]

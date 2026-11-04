@@ -110,7 +110,7 @@ contract Showcase is Script {
 
     function _context() internal view returns (Ctx memory c) {
         string memory json = vm.readFile(vm.envOr("DEPLOYMENTS_FILE", string("../deployments/mezo-testnet.json")));
-        c.vault = Vault(vm.parseJsonAddress(json, ".pots"));
+        c.vault = Vault(payable(vm.parseJsonAddress(json, ".pots")));
         c.musd = IERC20(vm.parseJsonAddress(json, ".musd"));
         c.key = vm.envUint("DEPLOYER_KEY");
         c.sender = vm.addr(c.key);

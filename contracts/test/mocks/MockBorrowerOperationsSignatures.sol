@@ -10,7 +10,10 @@ import {MockMUSD} from "./MockMUSD.sol";
 /// @notice Test double of Mezo's `BorrowerOperationsSignatures`: the same
 ///         EIP-712 domain, typehash, digest layout and sequential nonce as the
 ///         real `_verifySignature`, then MUSD minted to the recipient and the
-///         amount plus a 0.1% fee added to the borrower's debt.
+///         amount plus a 0.1% fee added to the borrower's debt. Like Mezo's
+///         `BorrowerOperations._moveTokensAndCollateralfromAdjustment`, it
+///         ends with `ActivePool.sendCollateral(recipient, 0)`: a zero-value
+///         call the recipient must accept ("Sending BTC failed").
 contract MockBorrowerOperationsSignatures is IBorrowerOperationsSignatures, EIP712 {
     bytes32 public constant WITHDRAW_MUSD_TYPEHASH =
         keccak256("WithdrawMUSD(uint256 amount,address borrower,address recipient,uint256 nonce,uint256 deadline)");
@@ -21,6 +24,7 @@ contract MockBorrowerOperationsSignatures is IBorrowerOperationsSignatures, EIP7
 
     error SignatureExpired();
     error InvalidSignature();
+    error SendingBtcFailed();
 
     constructor(MockMUSD _musd) EIP712("BorrowerOperationsSignatures", "1") {
         musd = _musd;
@@ -42,6 +46,10 @@ contract MockBorrowerOperationsSignatures is IBorrowerOperationsSignatures, EIP7
         ++_nonces[_borrower];
         debt[_borrower] += _amount + _amount / 1000;
         musd.mint(_recipient, _amount);
+        // Mezo's SendCollateral: `_recipient.call{value: 0}("")` must succeed.
+        // forge-lint: disable-next-line(unchecked-call) checked on the next line, as in Mezo.
+        (bool ok,) = _recipient.call{value: 0}("");
+        if (!ok) revert SendingBtcFailed();
     }
 
     function getNonce(address _user) external view returns (uint256) {
