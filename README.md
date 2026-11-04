@@ -1,6 +1,6 @@
 # Ìpín: Purpose-Bound Money
 
-**Mezo Buildathon (AKINDO) · Wave 1 · Track 2 (Access and Distribution), with Track 1 elements**
+**Mezo Buildathon (AKINDO) · Wave 2 · Track 2 (Access and Distribution) + Track 1 (savings in sMUSD, borrow-to-pay on Mezo troves)**
 
 Ìpín (working name, Yoruba for "share") lets you send money for a purpose, and makes sure it can only be spent on that purpose. The money waits in MUSD (Mezo's Bitcoin-backed dollar) until it's needed (and, from Wave 2, earns in Mezo's savings vault), and every cent is provable on-chain.
 

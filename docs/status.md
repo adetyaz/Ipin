@@ -31,7 +31,7 @@ plan in `docs/wave2.md` §7. Earlier snapshots are in git history.
 | Subscriptions screen + merchant subscribe link (P0) | Done: `/send/subscriptions`, `/merchant`, `/send/subscribe` (one multicall: addPayee + createSchedule); e2e on a local chain: link → subscribe → relayer pays → stop |
 | Security review of R10/R13 (P0) | Done (second pass in `docs/security-review.md`): M-02 fixed (borrow signature unusable outside Ìpín), L-04 fixed (relayer trove hints); **Vault `0x69aF…` predates the fix: redeploy** |
 | Mainnet deploy (P0) | Not started: needs the testnet redeploy + rehearsal first, real BTC/MUSD and your go-ahead |
-| Real sender evidence; track and team in the form | Not started |
+| Real sender evidence; track and team in the form | Guide and form draft ready: `docs/evidence/interview-guide.md`, `docs/evidence/wave2-form.md`; interviews and team names pending |
 | P1: x402 agent float, templates, naira payouts | Not started |
 
 ## Lessons from testnet (ADR-020 addendum)
