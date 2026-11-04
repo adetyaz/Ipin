@@ -1,8 +1,8 @@
 {
   "chainId": 31611,
-  "deployBlock": 16509521,
+  "deployBlock": 16566890,
   "musd": "0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503",
-  "policyEngine": "0x4F91686cd2BBb4fc0cfC0bAd4db16f8170fBc8a8",
-  "pots": "0x4F91686cd2BBb4fc0cfC0bAd4db16f8170fBc8a8",
+  "policyEngine": "0xD5fC295C29b41B9174d1887a669941CC4327E9d7",
+  "pots": "0xD5fC295C29b41B9174d1887a669941CC4327E9d7",
   "relayer": "0x1466F9EB70B79d2b36af7A4A31c45AD9AC861b54"
 }
