@@ -19,14 +19,14 @@ Wave 2 and beyond (subscriptions, x402 agent budgets, borrow-to-pay checkout, te
 - **Live app:** https://ipin-ten.vercel.app
 - **Demo video (2 min):** https://youtu.be/MmmpK6DZjj0
 - **Pitch deck:** [Google Slides](https://docs.google.com/presentation/d/1TV1C-6S-KPhzUcZUcKJrSV19zjBCZ63WyillbbS2ReY/edit?usp=sharing)
-- **Live on Mezo testnet:** Vault [`0x6da24cb091A69bc3026B233DBdD146cEb3b72727`](https://explorer.test.mezo.org/address/0x6da24cb091A69bc3026B233DBdD146cEb3b72727)
+- **Live on Mezo testnet:** Vault [`0x69aF910aF825faE2D06f320080a0A1023A0a48f8`](https://explorer.test.mezo.org/address/0x69aF910aF825faE2D06f320080a0A1023A0a48f8) (verified; savings and borrow-to-pay enabled)
 - **Try it:** [docs/demo.md](docs/demo.md) walks through the house story click by click, including what the contract refuses.
 
 ### Mezo integration
 
 - **MUSD** is the unit of every pot, rule and payment (18-decimal base units, EIP-2612 permit for one-transaction setup).
 - **MUSD savings vault (sMUSD):** idle pot money is deposited into Mezo's `MUSDSavingsRate` from the Vault and withdrawn back to the same pot; yield is credited to pots pro rata (R10, ADR-019). Testnet sMUSD: `0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16`. Trust assumption: sMUSD is upgradeable and its owner can change its strategy.
-- **Borrow-to-pay:** pay a merchant with MUSD borrowed against your BTC trove through Mezo's `BorrowerOperationsSignatures`, in the same transaction as the payment; if any check fails, nothing is borrowed (R13, ADR-020). Testnet: `0xD757e3646AF370b15f32EB557F0F8380Df7D639e`.
+- **Borrow-to-pay:** pay a merchant with MUSD borrowed against your BTC trove through Mezo's `BorrowerOperationsSignatures`, in the same transaction as the payment; if any check fails, nothing is borrowed (R13, ADR-020). Testnet: `0xD757e3646AF370b15f32EB557F0F8380Df7D639e`. **On-chain:** a pot with no money paid a merchant 1 MUSD borrowed against the sender's BTC trove, in one transaction: [`0x4cfa5910…c374`](https://explorer.test.mezo.org/tx/0x4cfa5910cf323289af53047eac0409a8e38b490b01fbbf2b5b49a587cc75c374).
 - **Gas in BTC:** the relayer pays BTC gas so requesters need no wallet, and takes a flat MUSD fee.
 
 ---
