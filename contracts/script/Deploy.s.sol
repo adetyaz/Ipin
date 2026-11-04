@@ -16,6 +16,8 @@ import {Vault} from "../src/Vault.sol";
 ///      - FEE_AMOUNT (default 0.25e18, ADR-002; 0 < fee <= 1e18),
 ///      - SAVINGS_ADDRESS (default: Mezo testnet sMUSD proxy; address(0)
 ///        disables savings, R10),
+///      - BORROWER_OPERATIONS_ADDRESS (default: Mezo testnet
+///        BorrowerOperationsSignatures; address(0) disables borrow-to-pay, R13),
 ///      - DEPLOYMENTS_FILE (default ../deployments/mezo-testnet.json).
 ///      The deployer key comes from the CLI (`--private-key`, `--account`).
 ///      Without `--broadcast` the file is written as `*.dry-run.json`.
@@ -24,10 +26,13 @@ contract Deploy is Script {
     uint256 internal constant _DEFAULT_FEE = 25e16;
     /// @dev MUSDSavingsRate proxy on Mezo testnet (docs/research/mezo.md section 1).
     address internal constant _TESTNET_SAVINGS = 0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16;
+    /// @dev BorrowerOperationsSignatures on Mezo testnet (mezo-org/musd deployments/matsnet).
+    address internal constant _TESTNET_BORROWER_OPS = 0xD757e3646AF370b15f32EB557F0F8380Df7D639e;
 
     error MusdHasNoCode(address musd);
     error MusdDecimalsNot18(uint8 decimals);
     error SavingsHasNoCode(address savings);
+    error BorrowerOpsHasNoCode(address borrowerOps);
 
     /// @notice Deploy the vault and write the deployment file.
     /// @return vault The deployed vault.
@@ -37,12 +42,14 @@ contract Deploy is Script {
         uint256 fee = vm.envOr("FEE_AMOUNT", _DEFAULT_FEE);
         address savings = vm.envOr("SAVINGS_ADDRESS", _TESTNET_SAVINGS);
         if (savings != address(0) && savings.code.length == 0) revert SavingsHasNoCode(savings);
+        address borrowerOps = vm.envOr("BORROWER_OPERATIONS_ADDRESS", _TESTNET_BORROWER_OPS);
+        if (borrowerOps != address(0) && borrowerOps.code.length == 0) revert BorrowerOpsHasNoCode(borrowerOps);
         if (musd.code.length == 0) revert MusdHasNoCode(musd);
         uint8 decimals = IERC20Metadata(musd).decimals();
         if (decimals != 18) revert MusdDecimalsNot18(decimals);
 
         vm.startBroadcast();
-        vault = new Vault(IERC20Metadata(musd), relayer, fee, savings);
+        vault = new Vault(IERC20Metadata(musd), relayer, fee, savings, borrowerOps);
         vm.stopBroadcast();
 
         _writeDeployment(musd, address(vault), relayer);

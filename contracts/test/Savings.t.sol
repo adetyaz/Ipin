@@ -163,7 +163,7 @@ contract VaultSavingsTest is IpinTest {
     }
 
     function test_R10_disabledWithoutSavingsVault() public {
-        Vault plain = new Vault(_musd, _relayer, _FEE, address(0));
+        Vault plain = new Vault(_musd, _relayer, _FEE, address(0), address(0));
         vm.startPrank(_sender);
         uint256 potId = plain.createPot("House", _CAP);
         vm.expectRevert(ISavings.SavingsDisabled.selector);

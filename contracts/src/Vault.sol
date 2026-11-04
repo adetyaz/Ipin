@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Multicall} from "@openzeppelin/contracts/utils/Multicall.sol";
 
+import {Checkout} from "./Checkout.sol";
 import {PolicyEngine} from "./PolicyEngine.sol";
 import {Pots} from "./Pots.sol";
 import {Savings} from "./Savings.sol";
@@ -17,17 +18,22 @@ import {Savings} from "./Savings.sol";
 ///      {claimFees} (fees already earned, to the immutable relayer).
 ///      Savings (R10) moves MUSD between the Vault and Mezo's sMUSD vault,
 ///      always credited to the same pot; it is not an outflow from a pot.
+///      {borrowAndPay} (R13) borrows MUSD from Mezo into a pot and settles a
+///      request-mode payment in the same transaction.
 ///      {multicall} (OZ) batches the sender's setup into one transaction. Each
 ///      inner call is a self-delegatecall with the caller's msg.sender, so it
 ///      passes exactly the checks it would pass alone; it adds no outflow.
-contract Vault is PolicyEngine, Savings, Multicall {
+contract Vault is Checkout, Savings, Multicall {
     /// @param _musd The MUSD token.
     /// @param _relayerAddress Receives withdrawn fees.
     /// @param _fee Flat fee per settled payment in MUSD base units
     ///        (0 < fee <= 1e18; ADR-002 default 0.25e18).
     /// @param _savingsRate Mezo's MUSDSavingsRate (sMUSD) for idle pots (R10),
     ///        or address(0) to disable savings.
-    constructor(IERC20 _musd, address _relayerAddress, uint256 _fee, address _savingsRate)
+    /// @param _borrowerOperations Mezo's BorrowerOperationsSignatures for
+    ///        borrow-to-pay (R13), or address(0) to disable it.
+    constructor(IERC20 _musd, address _relayerAddress, uint256 _fee, address _savingsRate, address _borrowerOperations)
+        Checkout(_borrowerOperations)
         PolicyEngine(_relayerAddress, _fee)
         Savings(_savingsRate)
         Pots(_musd)

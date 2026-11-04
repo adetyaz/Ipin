@@ -89,7 +89,7 @@ contract VaultExecuteTest is IpinTest {
     }
 
     function test_R8_rejectsWrongDomain() public {
-        Vault other = new Vault(_musd, _relayer, _FEE, address(_savings));
+        Vault other = new Vault(_musd, _relayer, _FEE, address(_savings), address(_borrowerOps));
         PaymentRequest memory req = _request(_potId, 5e18);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_senderKey, other.hashPaymentRequest(req));
         vm.expectRevert(abi.encodeWithSelector(IPolicyEngine.InvalidSignature.selector, _potId, _sender));

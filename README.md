@@ -26,7 +26,7 @@ Wave 2 and beyond (subscriptions, x402 agent budgets, borrow-to-pay checkout, te
 
 - **MUSD** is the unit of every pot, rule and payment (18-decimal base units, EIP-2612 permit for one-transaction setup).
 - **MUSD savings vault (sMUSD):** idle pot money is deposited into Mezo's `MUSDSavingsRate` from the Vault and withdrawn back to the same pot; yield is credited to pots pro rata (R10, ADR-019). Testnet sMUSD: `0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16`. Trust assumption: sMUSD is upgradeable and its owner can change its strategy.
-- **Borrow-to-pay (Wave 2, in progress):** borrow MUSD against BTC through Mezo's `BorrowerOperationsSignatures` and pay a merchant in the same transaction (R13, [docs/wave2.md](docs/wave2.md)).
+- **Borrow-to-pay:** pay a merchant with MUSD borrowed against your BTC trove through Mezo's `BorrowerOperationsSignatures`, in the same transaction as the payment; if any check fails, nothing is borrowed (R13, ADR-020). Testnet: `0xD757e3646AF370b15f32EB557F0F8380Df7D639e`.
 - **Gas in BTC:** the relayer pays BTC gas so requesters need no wallet, and takes a flat MUSD fee.
 
 ---

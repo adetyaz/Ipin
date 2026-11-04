@@ -40,10 +40,10 @@ contract VaultClaimFeesTest is IpinTest {
 
     function test_R4_constructorBoundsFee() public {
         vm.expectRevert(abi.encodeWithSelector(IPolicyEngine.FeeOutOfRange.selector, 0));
-        new Vault(_musd, _relayer, 0, address(0));
+        new Vault(_musd, _relayer, 0, address(0), address(0));
         vm.expectRevert(abi.encodeWithSelector(IPolicyEngine.FeeOutOfRange.selector, 1e18 + 1));
-        new Vault(_musd, _relayer, 1e18 + 1, address(0));
+        new Vault(_musd, _relayer, 1e18 + 1, address(0), address(0));
         vm.expectRevert(abi.encodeWithSelector(IPolicyEngine.ZeroAddress.selector));
-        new Vault(_musd, address(0), _FEE, address(0));
+        new Vault(_musd, address(0), _FEE, address(0), address(0));
     }
 }

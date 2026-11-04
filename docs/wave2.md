@@ -132,7 +132,7 @@ payees are allowlisted.
 > Pay at checkout by borrowing against what you hold, so you never have to sell it. The loan and
 > the payment happen in one transaction.
 
-### 4a. On Mezo with BTC (Wave 2, Track 1)
+### 4a. On Mezo with BTC (Wave 2, Track 1) — built (ADR-020)
 
 Mezo already lends MUSD against BTC (troves). Facts from `mezo-org/musd`
 (`BorrowerOperations.sol`, `BorrowerOperationsSignatures.sol`, read 2026-10-24):

@@ -195,3 +195,20 @@ don't build anything that depends on it) · **superseded**. Append new entries; 
 - Consequences: the Vault constructor takes a 4th argument (`address(0)` disables savings), so the
   Vault is redeployed. sMUSD is upgradeable and its owner can move principal (`setStrategy`): a
   trust assumption stated in the README.
+
+## ADR-020 Borrow-to-pay (R13) through Mezo's BorrowerOperationsSignatures
+- Status: proposed (2026-11-01, contracts agent; ADR-018 direction, prioritised by Wave 1 judging).
+- Decision: a `Checkout` module on the Vault (`Vault is Checkout, Savings, Multicall`, Checkout is
+  PolicyEngine). `borrowAndPay(loan, request, signature)` calls Mezo's
+  `withdrawMUSDWithSignature` with the pot owner as borrower and the Vault as recipient, credits
+  exactly the borrowed MUSD to the pot (`Borrowed`), then settles the request through the same
+  `_settle` path as `execute` (R3, R4, R7, R8, I5). The loan must equal amount + fee. Anyone may
+  submit (the relayer), so checkout is gasless for the sender; both signatures are the owner's.
+- Why: extends Mezo's own borrowing product (Track 1) without a second money path. If any check
+  fails the transaction reverts, so there is never debt without payment.
+- The mint happens before the credit because the credit must match MUSD that arrived
+  (`BorrowShortfall`); the entry is `nonReentrant`. Addresses: testnet
+  `0xD757e3646AF370b15f32EB557F0F8380Df7D639e`, mainnet `0xB57ab578BF20b3e318f3EFAA587C51DBccE5df7a`
+  (mezo-org/musd deployments). The borrower needs an open trove; liquidation risk stays theirs.
+- Consequences: the Vault constructor takes a 5th argument (`address(0)` disables it), so the
+  Vault is redeployed once more. `execute`'s body moved into internal `_settle` unchanged.

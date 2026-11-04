@@ -7,9 +7,11 @@ import {StdUtils} from "forge-std/StdUtils.sol";
 import {Vm} from "forge-std/Vm.sol";
 
 import {Vault} from "../../../src/Vault.sol";
+import {ICheckout} from "../../../src/interfaces/ICheckout.sol";
 import {IPolicyEngine} from "../../../src/interfaces/IPolicyEngine.sol";
 import {IPots} from "../../../src/interfaces/IPots.sol";
 import {PaymentRequest} from "../../../src/libraries/PaymentRequests.sol";
+import {MockBorrowerOperationsSignatures} from "../../mocks/MockBorrowerOperationsSignatures.sol";
 import {MockMUSD} from "../../mocks/MockMUSD.sol";
 import {MockSavingsRate} from "../../mocks/MockSavingsRate.sol";
 
@@ -24,6 +26,7 @@ contract VaultHandler is CommonBase, StdCheats, StdUtils {
     Vault public vault;
     MockMUSD public musd;
     MockSavingsRate public savings;
+    MockBorrowerOperationsSignatures public borrowerOps;
 
     address public sender;
     address public requester;
@@ -53,10 +56,17 @@ contract VaultHandler is CommonBase, StdCheats, StdUtils {
     bytes internal _lastSig;
     bool internal _hasLast;
 
-    constructor(Vault _vault, MockMUSD _musd, MockSavingsRate _savings, address _relayer) {
+    constructor(
+        Vault _vault,
+        MockMUSD _musd,
+        MockSavingsRate _savings,
+        MockBorrowerOperationsSignatures _borrowerOps,
+        address _relayer
+    ) {
         vault = _vault;
         musd = _musd;
         savings = _savings;
+        borrowerOps = _borrowerOps;
         relayer = _relayer;
         (sender, _senderKey) = makeAddrAndKey("inv-sender");
         (attacker, _attackerKey) = makeAddrAndKey("inv-attacker");
@@ -212,6 +222,22 @@ contract VaultHandler is CommonBase, StdCheats, StdUtils {
         }
     }
 
+    /// @dev R13: borrow exactly amount + fee against the sender's trove and pay
+    ///      in one transaction; the same ghosts check I3-I6 as executeSigned.
+    function borrowAndPay(uint256 _potSeed, uint256 _payeeSeed, uint256 _amount) external {
+        uint256 potId = pots[_potSeed % 2];
+        PaymentRequest memory req = _newRequest(potId, payees[_payeeSeed % 3], _amount);
+        ICheckout.Borrow memory loan = _borrowSig(req.amount + vault.fee());
+        bytes memory sig = _sign(req, _senderKey);
+        vm.prank(relayer);
+        try vault.borrowAndPay(loan, req, sig) {
+            if (++settlements[sender][req.nonce] > 1) ++ghostNonceReuses;
+            _afterPayout(req.potId, req.payee);
+        } catch {
+            return;
+        }
+    }
+
     function replayLast() external {
         if (_hasLast) _tryExecute(_last, _lastSig);
     }
@@ -299,6 +325,20 @@ contract VaultHandler is CommonBase, StdCheats, StdUtils {
         if (vault.spent(_potId, period) > vault.getPot(_potId).cap) {
             ++ghostCapViolations;
         }
+    }
+
+    function _borrowSig(uint256 _amount) internal view returns (ICheckout.Borrow memory loan) {
+        uint256 deadline = vm.getBlockTimestamp() + 1 hours;
+        bytes32 digest =
+            borrowerOps.withdrawDigest(_amount, sender, address(vault), borrowerOps.getNonce(sender), deadline);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(_senderKey, digest);
+        loan = ICheckout.Borrow({
+            amount: _amount,
+            upperHint: address(0),
+            lowerHint: address(0),
+            deadline: deadline,
+            signature: abi.encodePacked(r, s, v)
+        });
     }
 
     function _sign(PaymentRequest memory _req, uint256 _key) internal view returns (bytes memory) {
