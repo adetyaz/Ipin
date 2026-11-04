@@ -13,10 +13,10 @@ plan in `docs/wave2.md` §7. Earlier snapshots are in git history.
 
 | Suite | Result |
 | --- | --- |
-| Contracts (`pnpm test`) | 108 passed (fuzz 256) |
+| Contracts (`pnpm test`) | 109 passed (fuzz 256); `pnpm test:ci` 10k runs passed |
 | Invariants I1–I6 (`pnpm test:invariant`) | pass, with savings and borrow-to-pay handler actions |
 | `@ipin/shared` | 74 passed |
-| Relayer | 47 passed |
+| Relayer | 49 passed |
 | App | 34 passed; svelte-check 0 warnings |
 
 `pnpm check` passes.
@@ -29,7 +29,8 @@ plan in `docs/wave2.md` §7. Earlier snapshots are in git history.
 | R13 borrow-to-pay | Done: contract, relayer endpoint, app "Pay with a BTC loan", on-chain |
 | Full flow on testnet + verified Vault | Done (Showcase on `0x69aF…48f8`) |
 | Subscriptions screen + merchant subscribe link (P0) | Done: `/send/subscriptions`, `/merchant`, `/send/subscribe` (one multicall: addPayee + createSchedule); e2e on a local chain: link → subscribe → relayer pays → stop |
-| Security review of R10/R13, then mainnet (P0) | Not started |
+| Security review of R10/R13 (P0) | Done (second pass in `docs/security-review.md`): M-02 fixed (borrow signature unusable outside Ìpín), L-04 fixed (relayer trove hints); **Vault `0x69aF…` predates the fix: redeploy** |
+| Mainnet deploy (P0) | Not started: needs the testnet redeploy + rehearsal first, real BTC/MUSD and your go-ahead |
 | Real sender evidence; track and team in the form | Not started |
 | P1: x402 agent float, templates, naira payouts | Not started |
 

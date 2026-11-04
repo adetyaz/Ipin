@@ -265,3 +265,73 @@ Change: `Checkout` module (ADR-020). Reviewed by an AI agent (Claude); internal,
 | Invariants | `borrowAndPay` is a handler action; I1–I6 hold. |
 
 Result: no new findings. User risk to disclose: borrowing increases trove debt and liquidation risk.
+
+## Second pass: savings (R10) and borrow-to-pay (R13) before mainnet (2026-11-04)
+
+Reviewed by an AI agent (Claude) against Mezo's source (mezo-org/musd: `BorrowerOperations.sol`,
+`BorrowerOperationsSignatures.sol`, `ActivePool.sol`, `SendCollateral.sol`, `SortedTroves.sol`,
+`PriceFeed.sol`) and the testnet behaviour seen while running both features. Internal, not an
+audit. `pnpm test:ci` (10k fuzz runs, deep invariants): 109 passed; I1–I6 hold.
+
+| ID | Severity | Finding | Status | Tests |
+| --- | --- | --- | --- | --- |
+| M-02 | Medium | A borrow signature could be used outside Ìpín: debt for the sender, MUSD stranded in the Vault | Fixed | `test_R13_loanSignatureUnusableOutsideCheckout`, `test_R13_acceptsMezosZeroValueCollateralCall`, `RehearseBorrowToPay` (`directSubmission`) |
+| L-04 | Low | Borrowing without trove hints makes Mezo walk its whole trove list | Fixed in the relayer | `test_R13_relayerHintsTheBorrowersTrovePosition` |
+| L-05 | Low | The M-02 guard relies on Mezo making its zero-value BTC call; Mezo's contracts are upgradeable | Acknowledged; checked by the rehearsal before each deploy | `RehearseBorrowToPay` |
+| L-06 | Low | sMUSD strategy losses are invisible to `booksBalance()` and lock savings until Mezo restores them | Acknowledged (trust assumption, disclosed) | none |
+| I-08 | Info | Liquidation safety is enforced in the app only | Accepted | app `test_R13_blocksLoanUnderSafetyRatio` |
+| I-09 | Info | The borrow signature is not bound to a pot or request | Accepted | none |
+| I-10 | Info | Gifts of MUSD or sMUSD to the Vault become surplus | Accepted | none |
+
+### M-02 A borrow signature could be used outside Ìpín (fixed)
+
+`withdrawMUSDWithSignature` has no caller restriction, so anyone holding the sender's `WithdrawMUSD`
+signature can submit it: the relayer, or anyone watching the mempool once `borrowAndPay` is
+broadcast, since the signature is in its calldata. Submitted directly, Mezo mints the MUSD to the
+recipient (the Vault) and adds the debt to the sender's trove, but no pot is credited. The Vault
+has no sweep (S13), so that MUSD would stay as surplus forever, the sender would carry the debt,
+and their real checkout would then fail on the used nonce. The attacker gains nothing, so this is
+griefing, but the loss is permanent.
+
+Fix: Mezo ends every borrow with `ActivePool.sendCollateral(recipient, 0)`, a zero-value call the
+recipient must accept (`SendCollateral`: "Sending BTC failed"). The Vault's `receive()` now accepts
+it only while `_borrowInto` is waiting on Mezo (`_borrowing`), so a direct submission reverts inside
+Mezo and nothing is borrowed. Shown on the mock and, before redeploying, on a fork of Mezo testnet
+against Mezo's real contracts (`RehearseBorrowToPay`). The Vault deployed at `0x69aF…48f8` predates
+the fix, so it must be redeployed.
+
+### L-04 Borrowing without trove hints
+
+Mezo re-sorts the trove on every adjustment (`sortedTroves.reInsert`). With zero hints it walks the
+list from the head (`SortedTroves._findInsertPosition`), so the gas of a checkout grows with the
+number of troves. The hints are not part of the signed `WithdrawMUSD` message, so the relayer now
+fills them with the borrower's current neighbours (`getPrev`, `getNext`). Mezo validates hints
+itself, and a stale hint only costs a short walk. If the reads fail, the zero hints stay.
+
+### L-05 The M-02 guard depends on Mezo's behaviour
+
+Mezo's BorrowerOperations sits behind a proxy. If Mezo stopped making the zero-value call, direct
+submissions would succeed again, silently. `RehearseBorrowToPay` returns `directSubmission` and
+fails unless it reads "Sending BTC failed", so run it before every deploy and after any Mezo
+upgrade.
+
+### L-06 sMUSD strategy risk
+
+The Vault counts its sMUSD as 1:1 MUSD (`_savingsPrincipal`), which is how sMUSD shares work. If
+Mezo's owner moved principal to a losing strategy, `booksBalance()` would not show it, and
+`withdrawFromSavings` would revert with `SavingsShortfall` (a pot is never credited money that did
+not arrive) until Mezo restored the principal. This is a trust assumption in Mezo's savings vault,
+stated in the README.
+
+### Areas checked with no finding
+
+- **Real sMUSD behaviour.** `claimYield()` and `withdraw()` ran on testnet through the Vault
+  (README, on-chain evidence), with the harvest-first order intact.
+- **Reentrancy.** Mezo calls back into the Vault only through `receive()`, which has no state and
+  no calls. All entries that move money are `nonReentrant`.
+- **The loan amount.** Mezo mints exactly `_amount` to the recipient (`_withdrawMUSD`); the fee goes
+  to the trove's debt, and the Vault still checks the balance delta (`BorrowShortfall`).
+- **Signature domain.** The app's `WithdrawMUSD` typed data matches Mezo's digest byte for byte
+  (`test_R13_borrowSignatureMatchesMezoDigest`), and the same format borrowed on testnet.
+- **Relayer.** `approve-with-loan` refuses a loan other than amount + fee, needs the sender's
+  approval signature and simulates before broadcasting (`test_R13_relayer*`).

@@ -20,6 +20,9 @@ abstract contract Checkout is ICheckout, PolicyEngine {
     /// @inheritdoc ICheckout
     address public immutable borrowerOperations;
 
+    /// @dev True only while `_borrowInto` waits on Mezo (M-02).
+    bool private _borrowing;
+
     /// @param _borrowerOperations Mezo's BorrowerOperationsSignatures, or
     ///        address(0) to disable borrow-to-pay.
     // forge-lint: disable-next-line(missing-zero-check) address(0) disables borrow-to-pay.
@@ -29,10 +32,16 @@ abstract contract Checkout is ICheckout, PolicyEngine {
 
     /// @notice Accept Mezo's zero-value BTC call that ends every borrow
     ///         (`ActivePool.sendCollateral(recipient, 0)`, which reverts
-    ///         "Sending BTC failed" if the recipient refuses it). Any real BTC
+    ///         "Sending BTC failed" if the recipient refuses it), but only
+    ///         during a checkout. A borrow signature submitted to Mezo directly
+    ///         (by whoever saw it) therefore fails instead of minting MUSD
+    ///         into the Vault that no pot is credited with (M-02). Any real BTC
     ///         is refused, since nothing could ever move it out again.
+    // The two checks are the M-02 guard itself; no state change, no calls.
+    // solhint-disable-next-line no-complex-fallback
     receive() external payable {
         if (msg.value != 0) revert NativeBtcNotAccepted();
+        if (!_borrowing) revert BorrowOutsideCheckout();
     }
 
     /// @inheritdoc ICheckout
@@ -55,10 +64,12 @@ abstract contract Checkout is ICheckout, PolicyEngine {
         uint256 before = musd.balanceOf(address(this));
         // Credit only MUSD that arrived, so the mint comes first; nonReentrant.
         // forge-lint: disable-start(reentrancy-no-eth)
+        _borrowing = true;
         IBorrowerOperationsSignatures(borrowerOperations)
             .withdrawMUSDWithSignature(
                 _loan.amount, _loan.upperHint, _loan.lowerHint, owner, address(this), _loan.signature, _loan.deadline
             );
+        _borrowing = false;
         // forge-lint: disable-end(reentrancy-no-eth)
         uint256 received = musd.balanceOf(address(this)) - before;
         if (received < _loan.amount) revert BorrowShortfall(_loan.amount, received);
