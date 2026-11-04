@@ -17,7 +17,7 @@ plan in `docs/wave2.md` §7. Earlier snapshots are in git history.
 | Invariants I1–I6 (`pnpm test:invariant`) | pass, with savings and borrow-to-pay handler actions |
 | `@ipin/shared` | 74 passed |
 | Relayer | 47 passed |
-| App | 29 passed; svelte-check 0 warnings |
+| App | 34 passed; svelte-check 0 warnings |
 
 `pnpm check` passes.
 
@@ -28,7 +28,7 @@ plan in `docs/wave2.md` §7. Earlier snapshots are in git history.
 | R10 savings in sMUSD | Done: contract, app card, on-chain |
 | R13 borrow-to-pay | Done: contract, relayer endpoint, app "Pay with a BTC loan", on-chain |
 | Full flow on testnet + verified Vault | Done (Showcase on `0x69aF…48f8`) |
-| Subscriptions screen + merchant subscribe link (P0) | Not started |
+| Subscriptions screen + merchant subscribe link (P0) | Done: `/send/subscriptions`, `/merchant`, `/send/subscribe` (one multicall: addPayee + createSchedule); e2e on a local chain: link → subscribe → relayer pays → stop |
 | Security review of R10/R13, then mainnet (P0) | Not started |
 | Real sender evidence; track and team in the form | Not started |
 | P1: x402 agent float, templates, naira payouts | Not started |

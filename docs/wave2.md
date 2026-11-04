@@ -58,7 +58,8 @@ App work: a template picker on `/send/new` that pre-fills the existing create-po
 it when due. The contract pays at most once per period (R9), within the cap (R7), only to the named
 payee (I5).
 
-**Wave 2 adds:**
+**Wave 2 adds:** (items 1, 2 and the shortfall warning of 4 are built: `/send/subscriptions`,
+`/merchant` makes the link, `/send/subscribe` accepts it in one multicall)
 
 1. **Subscriptions screen.** It lists every schedule as a subscription with next due date
    (`nextDue()`), amount and payee, plus a one-tap cancel (`cancelSchedule`). App only.
