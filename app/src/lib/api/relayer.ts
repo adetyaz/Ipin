@@ -1,5 +1,6 @@
 import {
   approveResponseSchema,
+  type Borrow,
   createInviteResponseSchema,
   createRequestResponseSchema,
   errorResponseSchema,
@@ -10,6 +11,7 @@ import {
   type Request,
   requestSchema,
   type RequestStatus,
+  toBorrowJson,
   toPaymentRequestJson,
 } from "@ipin/shared"
 import type { Address, Hex } from "viem"
@@ -148,6 +150,26 @@ export const relayer = {
         senderSignature,
       },
     }),
+
+  /** R13: approve and pay with MUSD borrowed against the sender's BTC. */
+  approveWithLoan: (
+    id: string,
+    paymentRequest: PaymentRequest,
+    senderSignature: Hex,
+    loan: Borrow,
+  ) =>
+    call(
+      `/requests/${encodeURIComponent(id)}/approve-with-loan`,
+      approveResponseSchema,
+      {
+        method: "POST",
+        body: {
+          paymentRequest: toPaymentRequestJson(paymentRequest),
+          senderSignature,
+          loan: toBorrowJson(loan),
+        },
+      },
+    ),
 
   reject: (id: string, senderSignature: Hex) =>
     call(`/requests/${encodeURIComponent(id)}/reject`, okResponseSchema, {

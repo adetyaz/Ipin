@@ -27,6 +27,14 @@ abstract contract Checkout is ICheckout, PolicyEngine {
         borrowerOperations = _borrowerOperations;
     }
 
+    /// @notice Accept Mezo's zero-value BTC call that ends every borrow
+    ///         (`ActivePool.sendCollateral(recipient, 0)`, which reverts
+    ///         "Sending BTC failed" if the recipient refuses it). Any real BTC
+    ///         is refused, since nothing could ever move it out again.
+    receive() external payable {
+        if (msg.value != 0) revert NativeBtcNotAccepted();
+    }
+
     /// @inheritdoc ICheckout
     function borrowAndPay(Borrow calldata _loan, PaymentRequest calldata _request, bytes calldata _signature)
         external

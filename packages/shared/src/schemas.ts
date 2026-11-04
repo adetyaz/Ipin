@@ -192,6 +192,35 @@ export const approveBodySchema = z.strictObject({
 })
 export type ApproveBody = z.output<typeof approveBodySchema>
 
+/** Mezo borrow signed by the pot owner (R13); mirrors ICheckout.Borrow. */
+export const borrowSchema = z.strictObject({
+  amount: uint256String,
+  upperHint: addressSchema,
+  lowerHint: addressSchema,
+  deadline: uint256String,
+  signature: signatureSchema,
+})
+export type BorrowJson = z.input<typeof borrowSchema>
+export type Borrow = z.output<typeof borrowSchema>
+
+export function toBorrowJson(b: Borrow): BorrowJson {
+  return {
+    amount: b.amount.toString(),
+    upperHint: b.upperHint,
+    lowerHint: b.lowerHint,
+    deadline: b.deadline.toString(),
+    signature: b.signature,
+  }
+}
+
+/** Approve and pay with MUSD borrowed against the sender's BTC (R13). */
+export const approveWithLoanBodySchema = z.strictObject({
+  paymentRequest: paymentRequestSchema,
+  senderSignature: hexSchema,
+  loan: borrowSchema,
+})
+export type ApproveWithLoanBody = z.output<typeof approveWithLoanBodySchema>
+
 export const approveResponseSchema = z.object({ txHash: bytes32Schema })
 
 export const rejectBodySchema = z.strictObject({

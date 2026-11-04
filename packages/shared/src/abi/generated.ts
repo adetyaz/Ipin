@@ -2150,6 +2150,11 @@ export const vaultAbi = [
     "inputs": []
   },
   {
+    "type": "error",
+    "name": "NativeBtcNotAccepted",
+    "inputs": []
+  },
+  {
     "type": "function",
     "name": "multicall",
     "inputs": [

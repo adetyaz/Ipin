@@ -9,6 +9,7 @@ import { z } from "zod"
 
 import {
   approveBodySchema,
+  approveWithLoanBodySchema,
   claimInviteBodySchema,
   createInviteBodySchema,
   createRequestBodySchema,
@@ -142,6 +143,15 @@ export function createApp(opts: {
   app.post("/requests/:id/approve", async (c) => {
     const body = await parseBody(await readJson(c.req), approveBodySchema)
     return c.json(await service.approve(c.req.param("id"), body))
+  })
+
+  // R13: approve and pay with MUSD borrowed against the sender's BTC trove.
+  app.post("/requests/:id/approve-with-loan", async (c) => {
+    const body = await parseBody(
+      await readJson(c.req),
+      approveWithLoanBodySchema,
+    )
+    return c.json(await service.approveWithLoan(c.req.param("id"), body))
   })
   app.post("/requests/:id/reject", async (c) => {
     const body = await parseBody(await readJson(c.req), rejectBodySchema)

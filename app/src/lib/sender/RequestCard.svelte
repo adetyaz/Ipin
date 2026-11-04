@@ -11,11 +11,14 @@
     randomNonce,
     rejectMessage,
     type Request,
+    withdrawMusdDomain,
+    withdrawMusdTypedData,
   } from "@ipin/shared"
-  import type { Address, Hex } from "viem"
+  import { type Address, type Hex, zeroAddress } from "viem"
 
   import { relayer, RelayerError } from "#/api/relayer"
-  import { explorer, publicClient } from "#/chain/client"
+  import { explorer, MEZO_TESTNET_APP, publicClient } from "#/chain/client"
+  import { type Credit, readCredit } from "#/chain/credit"
   import { requireDeployments } from "#/chain/deployment"
   import { isNonceUsed, type PotView, vaultWrites } from "#/chain/vault"
   import { wallet } from "#/chain/wallet.svelte"
@@ -35,18 +38,22 @@
   import Steps from "#/ui/Steps.svelte"
 
   import { approvalExpiry } from "./approval"
+  import { checkLoan, formatRatio } from "./credit"
 
   let {
     request,
     pot,
     payees,
     fee,
+    credit = undefined,
     onchange,
   }: {
     request: Request
     pot: PotView | undefined
     payees: Address[]
     fee: bigint | null
+    /** The sender's Mezo trove, for paying with a BTC loan (R13). */
+    credit?: Credit | undefined
     onchange: () => void
   } = $props()
 
@@ -92,10 +99,27 @@
       !short,
   )
 
-  async function approve() {
-    if (!canApprove) return
-    const { chainId, vault } = requireDeployments()
-    const message = {
+  // R13: borrow exactly amount + fee against the sender's BTC trove and pay
+  // in the same transaction. Offered whenever the request is otherwise valid.
+  const loanAmount = $derived(fee === null ? null : request.amount + fee)
+  const loan = $derived(
+    credit?.status === "active" && loanAmount !== null
+      ? checkLoan(credit.line, loanAmount)
+      : null,
+  )
+  const loanOffered = $derived(
+    request.status === "pending" &&
+      intact &&
+      payeeOk &&
+      !!pot &&
+      !overCap &&
+      !!credit &&
+      credit.status !== "disabled",
+  )
+  const canBorrow = $derived(loanOffered && !!loan?.ok)
+
+  function approvalMessage() {
+    return {
       potId: request.potId,
       payee: request.payee,
       amount: request.amount,
@@ -103,27 +127,99 @@
       nonce: randomNonce(),
       expiry: approvalExpiry(nowSeconds()), // at most 7 days (L-02)
     }
+  }
+
+  async function signApproval(message: ReturnType<typeof approvalMessage>) {
+    const { chainId, vault } = requireDeployments()
+    const client = wallet.client()
+    const signature = await client.signTypedData({
+      account: client.account.address,
+      ...paymentRequestTypedData(paymentRequestDomain(chainId, vault), message),
+    })
+    const record = {
+      requestId: request.id,
+      nonce: message.nonce.toString(),
+      expiry: message.expiry.toString(),
+    }
+    rememberSignedApproval(record)
+    stored = record
+    return signature
+  }
+
+  async function payBorrowing() {
+    if (!canBorrow || credit?.status !== "active" || loanAmount === null) return
+    const bos = credit.bos
+    const { chainId, vault } = requireDeployments()
+    const message = approvalMessage()
+    let approvalSig: Hex | null = null
+    let loanSig: Hex | null = null
+    const deadline = approvalExpiry(nowSeconds())
+    const ok = await flow.run([
+      {
+        label: `Sign a ${formatUsd(loanAmount)} loan against your BTC`,
+        hint: "MetaMask shows Mezo's WithdrawMUSD: the amount, you as borrower, the Ìpín vault as recipient.",
+        run: async () => {
+          const client = wallet.client()
+          // Re-read the nonce: Mezo's is sequential per borrower.
+          const fresh = await readCredit(client.account.address)
+          if (fresh.status !== "active") throw new Error("No open trove.")
+          loanSig = await client.signTypedData({
+            account: client.account.address,
+            ...withdrawMusdTypedData(withdrawMusdDomain(chainId, bos), {
+              amount: loanAmount,
+              borrower: client.account.address,
+              recipient: vault,
+              nonce: fresh.nonce,
+              deadline,
+            }),
+          })
+        },
+      },
+      {
+        label: "Sign your approval",
+        hint: "MetaMask shows the pot, payee and amount. Check them and sign.",
+        run: async () => {
+          approvalSig = await signApproval(message)
+        },
+      },
+      {
+        label: `Borrow and pay ${request.vendor} ${formatUsd(request.amount)}`,
+        hint: "One transaction on Mezo: the loan, then the payment. If either fails, neither happens.",
+        run: async () => {
+          if (!approvalSig || !loanSig) throw new Error("No signature.")
+          const { txHash } = await relayer.approveWithLoan(
+            request.id,
+            message,
+            approvalSig,
+            {
+              amount: loanAmount,
+              upperHint: zeroAddress,
+              lowerHint: zeroAddress,
+              deadline,
+              signature: loanSig,
+            },
+          )
+          await publicClient.waitForTransactionReceipt({ hash: txHash })
+          paidTx = txHash
+          forgetSignedApproval(request.id)
+          stored = undefined
+          return txHash
+        },
+      },
+    ])
+    if (ok) onchange()
+  }
+
+  async function approve() {
+    if (!canApprove) return
+    const message = approvalMessage()
     let signature: Hex | null = null
     const ok = await flow.run([
       {
         label: "Sign your approval",
         hint: "MetaMask shows the pot, payee and amount. Check them and sign.",
         run: async () => {
-          const client = wallet.client()
-          signature = await client.signTypedData({
-            account: client.account.address,
-            ...paymentRequestTypedData(
-              paymentRequestDomain(chainId, vault),
-              message,
-            ),
-          })
-          const record = {
-            requestId: request.id,
-            nonce: message.nonce.toString(),
-            expiry: message.expiry.toString(),
-          }
-          rememberSignedApproval(record)
-          stored = record
+          signature = await signApproval(message)
         },
       },
       {
@@ -276,8 +372,10 @@
       </Notice>
     {:else if short}
       <Notice tone="warn" title="Not enough in the pot">
-        It needs {formatUsd(request.amount + (fee ?? 0n))} including the fee. Add
-        money first.
+        It needs {formatUsd(request.amount + (fee ?? 0n))} including the fee.
+        {loanOffered
+          ? "Add money, or pay with a BTC loan below."
+          : "Add money first."}
       </Notice>
     {/if}
     {#if fee !== null}
@@ -285,6 +383,49 @@
         Plus a {formatUsd(fee)} relayer fee from the same pot. The requester pays
         nothing.
       </p>
+    {/if}
+    {#if loanOffered && !paidTx && !flow.done && !stored}
+      <section class="loan" aria-label="Pay with a BTC loan">
+        <h4>Or pay with a BTC loan</h4>
+        {#if credit?.status === "no-trove"}
+          <p>
+            Keep your BTC and pay in MUSD borrowed against it. Open a MUSD loan
+            once on <a href={MEZO_TESTNET_APP} target="_blank" rel="noreferrer"
+              >Mezo</a
+            >, then come back.
+          </p>
+        {:else if loan && loanAmount !== null}
+          <p>
+            Borrow <strong>{formatUsd(loanAmount)}</strong> (price plus fee) on
+            your Mezo trove. The pot isn't touched. Collateral ratio
+            <strong class="num">{formatRatio(loan.ratioNow)}</strong> →
+            <strong class="num">{formatRatio(loan.ratioAfter)}</strong>.
+          </p>
+          {#if loan.reason === "ratio"}
+            <Notice tone="warn" title="Your trove is too thin for this">
+              Ìpín keeps loans above 150% so a BTC dip doesn't get you
+              liquidated. Add BTC to your trove on <a
+                href={MEZO_TESTNET_APP}
+                target="_blank"
+                rel="noreferrer">Mezo</a
+              > first.
+            </Notice>
+          {:else if loan.reason === "capacity"}
+            <Notice tone="warn" title="Over your trove's borrowing limit">
+              Mezo caps how much this trove can borrow. Add BTC on Mezo to raise
+              it.
+            </Notice>
+          {/if}
+          <Button
+            variant="secondary"
+            onclick={payBorrowing}
+            busy={flow.running}
+            disabled={!canBorrow || flow.running}
+          >
+            Pay with a BTC loan
+          </Button>
+        {/if}
+      </section>
     {/if}
   {:else if request.status === "failed" && request.error}
     <Notice tone="error">{request.error}</Notice>
@@ -422,6 +563,18 @@
     min-height: var(--tap);
     font-weight: 600;
     font-size: var(--text-sm);
+  }
+  .loan {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
+    background: var(--surface-2);
+    font-size: var(--text-sm);
+  }
+  .loan h4 {
+    font-size: var(--text-md);
   }
   .actions {
     display: grid;

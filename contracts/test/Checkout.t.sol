@@ -110,6 +110,20 @@ contract VaultCheckoutTest is IpinTest {
         plain.borrowAndPay(loan, req, "");
     }
 
+    function test_R13_acceptsMezosZeroValueCollateralCall() public {
+        // Mezo's ActivePool.sendCollateral(vault, 0) during every borrow.
+        (bool ok,) = address(_vault).call{value: 0}("");
+        assertTrue(ok, "vault accepts Mezo's zero-value BTC call");
+    }
+
+    function test_R13_rejectsNativeBtc() public {
+        vm.deal(_sender, 1 ether);
+        vm.prank(_sender);
+        (bool ok,) = address(_vault).call{value: 1}("");
+        assertFalse(ok, "BTC sent to the vault would be stuck");
+        assertEq(address(_vault).balance, 0);
+    }
+
     // --- Helper functions ---
 
     /// @dev The sender's borrow signature: mint `_amount` to the vault.

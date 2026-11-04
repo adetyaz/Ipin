@@ -24,6 +24,8 @@ interface ICheckout {
     error BorrowingDisabled();
     error BorrowAmountMismatch(uint256 expected, uint256 got);
     error BorrowShortfall(uint256 expected, uint256 received);
+    /// @notice BTC was sent to the Vault; it holds MUSD only.
+    error NativeBtcNotAccepted();
 
     /// @notice Borrow exactly `_request.amount + fee` against the pot owner's
     ///         trove and settle `_request` (sender-signed, as {execute}).

@@ -1,63 +1,46 @@
-# Status (Sat 2026-10-24, submission due 2026-10-25)
+# Status (Wed 2026-11-04, Wave 2 builds Nov 2–15)
 
-This replaces the morning audit of the same day, which described an earlier snapshot ("no money can
-leave a pot yet"). That is no longer true. The audit is still in git history.
+Wave 1 is unchanged and live. This page tracks Wave 2 against the judges' Nov 1 feedback and the
+plan in `docs/wave2.md` §7. Earlier snapshots are in git history.
 
-## Summary
+## Live
 
-- Wave 1 is built end to end on Mezo testnet: pots and splits, payee allowlist, itemized requests
-  from a phone with no wallet, one-signature approval paid straight to the vendor, capped monthly
-  allowance, statement and the `booksBalance()` badge.
-- Vault deployed at `0x69B6401d6C94e11e6D2390F4ee35D5a55A375aeF` (`deployments/mezo-testnet.json`).
-  It must be **redeployed** to include multicall (the one-transaction setup), then the app rebuilt.
-- One internal security review is done (`docs/security-review.md`): no critical or high findings,
-  one medium fixed (cancel a signed approval). Multicall was added after it and has its own addendum there.
+- Vault `0x69aF910aF825faE2D06f320080a0A1023A0a48f8` on Mezo testnet, verified, with sMUSD savings
+  (R10) and borrow-to-pay (R13) enabled (`deployments/mezo-testnet.json`).
+- Every Mezo call has an explorer link in the README ("On-chain evidence").
 
 ## Tests
 
 | Suite | Result |
 | --- | --- |
-| Contracts (`pnpm test`) | 88 passed (fuzz 256) |
-| Invariants I1–I6 (`pnpm test:invariant`) | all pass, including a multicall handler action |
-| `@ipin/shared` | 73 passed |
-| Relayer | 43 passed, plus 3 anvil end-to-end tests (`pnpm --filter relayer test:anvil`) |
-| App | 25 passed; svelte-check 0 warnings |
+| Contracts (`pnpm test`) | 108 passed (fuzz 256) |
+| Invariants I1–I6 (`pnpm test:invariant`) | pass, with savings and borrow-to-pay handler actions |
+| `@ipin/shared` | 74 passed |
+| Relayer | 47 passed |
+| App | 29 passed; svelte-check 0 warnings |
 
 `pnpm check` passes.
 
-## Rules and invariants
+## Wave 2 items
 
-| ID | Status |
+| Item | Status |
 | --- | --- |
-| R1 Units, R2 Splits, R3 Replays, R4 Fees, R7 Caps, R8 Approval, R9 Schedule | Built and tested |
-| R5 Pending | Wave 2 (ADR-015: Wave 1 payouts are synchronous) |
-| R6 Refunds | Wave 1: a failed payout reverts atomically. Async refunds are Wave 2 |
-| R10 Savings | Wave 2 |
-| I1–I6 | Invariant tests pass |
+| R10 savings in sMUSD | Done: contract, app card, on-chain |
+| R13 borrow-to-pay | Done: contract, relayer endpoint, app "Pay with a BTC loan", on-chain |
+| Full flow on testnet + verified Vault | Done (Showcase on `0x69aF…48f8`) |
+| Subscriptions screen + merchant subscribe link (P0) | Not started |
+| Security review of R10/R13, then mainnet (P0) | Not started |
+| Real sender evidence; track and team in the form | Not started |
+| P1: x402 agent float, templates, naira payouts | Not started |
 
-## User stories
+## Lessons from testnet (ADR-020 addendum)
 
-| US | Status |
-| --- | --- |
-| US1 Pots and split | Built. One transaction after the redeploy |
-| US2 Approved payees | Built |
-| US3 Request from a phone | Built |
-| US4 Approve and pay | Built |
-| US5 Upkeep allowance | Built |
-| US6 Statement and books balance | Built |
-| US7 Refunds | Covered by tests (atomic revert) |
-| US8 Savings vault | Wave 2 |
-| US9 Fund with card | Built (link only; Banxa delivers on mainnet) |
+- Mezo sends a zero-value BTC call to every borrow recipient; the Vault now accepts it.
+- Forge cannot simulate Mezo borrows (price oracle precompile); use `RehearseBorrowToPay.s.sol`
+  on a fork, then `cast send`.
+- Mezo's node rejects out-of-order nonces: run multi-transaction scripts with `--slow`.
 
-Click-by-click walkthrough: `docs/demo.md`.
+## Open decisions
 
-## Left for Wave 1
-
-| Item | Owner |
-| --- | --- |
-| Merge `feat/multicall`, redeploy the Vault, rebuild the app | User (deploy key) |
-| Verify the source on the explorer (first attempt failed) | User, after the redeploy |
-| Security-review addendum for multicall | Done (docs/security-review.md) |
-| Public URL: app on Vercel, relayer on Render or Railway | User (accounts) |
-| Simulated month (50 families, 30 days) | Agent; cut first if short on time |
-| Deck, 2-minute video (`docs/demo.md`), AKINDO form | User, agent drafts |
+- Borrow safety margin: the app blocks loans under 150% (docs/wave2.md 4a, **proposed**). The demo
+  trove sits near 134%, so it needs more BTC collateral, or the margin is lowered.

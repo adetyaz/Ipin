@@ -6,6 +6,7 @@
   import { itemHash, type Request } from "@ipin/shared"
   import type { Address } from "viem"
 
+  import type { Credit } from "#/chain/credit"
   import type { PotView } from "#/chain/vault"
   import { parseUsdInput } from "#/money/format"
   import type { SplitPlan } from "#/money/split"
@@ -24,6 +25,26 @@
   }
   const owner = "0x1111111111111111111111111111111111111111" as Address
   const vendor = "0x2222222222222222222222222222222222222222" as Address
+  const bos = "0x3333333333333333333333333333333333333333" as Address
+  const E18 = 10n ** 18n
+  const trove = {
+    debt: 2_002n * E18,
+    price: 79_312n * E18,
+    maxBorrowingCapacity: 10n ** 24n,
+    borrowingRate: E18 / 1000n,
+  }
+  const healthyCredit: Credit = {
+    status: "active",
+    bos,
+    nonce: 0n,
+    line: { ...trove, coll: 10n ** 17n },
+  }
+  const thinCredit: Credit = {
+    status: "active",
+    bos,
+    nonce: 0n,
+    line: { ...trove, coll: 34n * 10n ** 15n },
+  }
 
   const pots: PotView[] = [
     {
@@ -63,6 +84,16 @@
     status: "pending",
     createdAt: new Date().toISOString(),
   }
+  // Within the limit but more than the pot holds: the BTC-loan case.
+  const loanRequest: Request = {
+    ...request,
+    id: "r2",
+    item: "Sand, 1 trip",
+    quantity: 2n,
+    amount: m("2"),
+    itemHash: itemHash("Sand, 1 trip", 2n, m("1"), "Vendor Y"),
+    note: "",
+  }
 
   let total = $state("10.00")
   let pieces = $state(["7.50", ""])
@@ -88,10 +119,19 @@
       />
     </div>
     <RequestCard
-      {request}
-      pot={pots[0]}
+      request={loanRequest}
+      pot={{ ...pots[0]!, balance: m("0.50") }}
       payees={[vendor]}
       fee={m("0.25")}
+      credit={healthyCredit}
+      onchange={() => {}}
+    />
+    <RequestCard
+      request={loanRequest}
+      pot={{ ...pots[0]!, balance: m("0.50") }}
+      payees={[vendor]}
+      fee={m("0.25")}
+      credit={thinCredit}
       onchange={() => {}}
     />
     <div class="row">

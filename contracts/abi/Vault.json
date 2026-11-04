@@ -31,6 +31,10 @@
     "stateMutability": "nonpayable"
   },
   {
+    "type": "receive",
+    "stateMutability": "payable"
+  },
+  {
     "type": "function",
     "name": "BPS_TOTAL",
     "inputs": [],
@@ -2051,6 +2055,11 @@
         "internalType": "address"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "NativeBtcNotAccepted",
+    "inputs": []
   },
   {
     "type": "error",
