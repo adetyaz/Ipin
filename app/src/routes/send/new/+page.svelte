@@ -7,6 +7,7 @@
   import { wallet } from "#/chain/wallet.svelte"
   import { formatUsd, parseUsdInput } from "#/money/format"
   import type { SplitPlan } from "#/money/split"
+  import { type Template, templateById, TEMPLATES } from "#/sender/templates"
   import AdireSwatch from "#/ui/AdireSwatch.svelte"
   import Button from "#/ui/Button.svelte"
   import { Flow } from "#/ui/flow.svelte"
@@ -14,6 +15,7 @@
   import SplitEditor from "#/ui/SplitEditor.svelte"
   import Steps from "#/ui/Steps.svelte"
   import WalletGate from "#/ui/WalletGate.svelte"
+  import { page } from "$app/state"
 
   const MAX_POTS = 10 // Pots.MAX_SPLIT_POTS
 
@@ -30,6 +32,23 @@
   let balance = $state<bigint | null>(null)
 
   const flow = new Flow()
+
+  // Purpose templates (docs/wave2.md 1) only pre-fill this form.
+  let chosen = $state<Template | undefined>(templateById("house"))
+
+  function apply(t: Template) {
+    chosen = t
+    pots = t.pots.map((p) => ({ ...p }))
+    pieces = [...t.pieces]
+    restIndex = t.restIndex
+    total = t.total
+    addMoney = t.addMoney
+  }
+
+  $effect(() => {
+    const t = templateById(page.url.searchParams.get("template"))
+    if (t) apply(t)
+  })
 
   $effect(() => {
     if (wallet.ready && wallet.account) {
@@ -127,10 +146,32 @@
             ? `${formatUsd(split.total)} is in your pots, split exactly as you set.`
             : "Add money whenever you're ready."}
         </Notice>
+        {#if chosen}<p class="next">
+            <strong>Next:</strong>
+            {chosen.next}
+          </p>{/if}
         <Steps {flow} />
         <Button href="/send" size="lg" full>See your pots</Button>
       </div>
     {:else}
+      <section aria-labelledby="tpl-h" class="tpl">
+        <h2 id="tpl-h" class="visually-hidden">Start from a purpose</h2>
+        <div class="chips" role="group" aria-label="Start from a purpose">
+          {#each TEMPLATES as t (t.id)}
+            <button
+              type="button"
+              class="chip"
+              aria-pressed={chosen?.id === t.id}
+              onclick={() => apply(t)}
+              disabled={flow.running}
+            >
+              {t.title}
+            </button>
+          {/each}
+        </div>
+        {#if chosen}<p class="muted blurb">{chosen.blurb}</p>{/if}
+      </section>
+
       <section class="card" aria-labelledby="pots-h">
         <h2 id="pots-h">Pots</h2>
         <div class="pots">
@@ -240,6 +281,44 @@
 </WalletGate>
 
 <style>
+  .tpl {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+  .chip {
+    min-height: var(--tap);
+    padding: 0 var(--space-3);
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: var(--surface);
+    box-shadow: inset 0 0 0 1px var(--line-strong);
+    color: var(--ink-2);
+    font: inherit;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .chip[aria-pressed="true"] {
+    background: var(--indigo);
+    color: var(--surface);
+    box-shadow: none;
+  }
+  .chip:focus-visible {
+    outline: 2px solid var(--indigo);
+    outline-offset: 2px;
+  }
+  .blurb {
+    font-size: var(--text-sm);
+  }
+  .next {
+    font-size: var(--text-sm);
+  }
   .page {
     max-width: 36rem;
     margin: 0 auto;

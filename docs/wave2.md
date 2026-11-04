@@ -48,7 +48,8 @@ A template is a preset: pot names, split, cap, release mode and payee type. No n
 | Agent budget | Agent | Per use (x402) | An AI agent | Allowlisted services |
 | Pay at checkout | Credit | Borrow then pay, one transaction | The sender | A merchant |
 
-App work: a template picker on `/send/new` that pre-fills the existing create-pot flow.
+App work: a template picker on `/send/new` that pre-fills the existing create-pot flow. **Built**
+(all rows except the milestone grant, which needs photo proof, later).
 
 ---
 
@@ -112,7 +113,7 @@ gas in BTC), the settlement proxy `0x402085c248EeA27D92E8b30b2C58ed07f9E20001`, 
 
 | Step | How | Trade-off |
 | --- | --- | --- |
-| A. Agent float | A schedule tops up the agent's own x402 wallet from the pot, for example 5 MUSD a week. The agent pays services with the standard x402 client. | Ships in days and uses only Wave 1 code. Loss is bounded by the float. The payee allowlist applies to the float, not to each call. |
+| A. Agent float (**built**, `docs/agents.md`) | A schedule tops up the agent's own x402 wallet from the pot, for example 5 MUSD a week. The agent pays services with the standard x402 client. | Ships in days and uses only Wave 1 code. Loss is bounded by the float. The payee allowlist applies to the float, not to each call. |
 | B. Direct settlement | The vault validates Permit2 signatures through ERC-1271 (`isValidSignature`), only for payments that passed the mandate checks. The facilitator then settles straight from the pot. | Every call is policy-checked on-chain (I5 holds per call). More contract work, and it needs a security review. |
 
 **Proposed rule and invariant:**

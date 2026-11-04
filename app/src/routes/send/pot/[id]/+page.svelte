@@ -10,6 +10,7 @@
   } from "#/chain/vault"
   import { wallet } from "#/chain/wallet.svelte"
   import { formatUsd, parseUsdInput, toInputString } from "#/money/format"
+  import AgentFloat from "#/sender/AgentFloat.svelte"
   import Allowance from "#/sender/Allowance.svelte"
   import Payees from "#/sender/Payees.svelte"
   import People from "#/sender/People.svelte"
@@ -174,6 +175,13 @@
             potId={pot.id}
             payees={payees ?? []}
             {refresh}
+            onchange={bump}
+          />
+          <AgentFloat
+            potId={pot.id}
+            cap={pot.cap}
+            payees={payees ?? []}
+            requesters={requesters ?? []}
             onchange={bump}
           />
           <Savings

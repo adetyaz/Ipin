@@ -17,7 +17,7 @@ plan in `docs/wave2.md` §7. Earlier snapshots are in git history.
 | Invariants I1–I6 (`pnpm test:invariant`) | pass, with savings and borrow-to-pay handler actions |
 | `@ipin/shared` | 74 passed |
 | Relayer | 49 passed |
-| App | 34 passed; svelte-check 0 warnings |
+| App | 44 passed; svelte-check 0 warnings |
 
 `pnpm check` passes.
 
@@ -32,7 +32,9 @@ plan in `docs/wave2.md` §7. Earlier snapshots are in git history.
 | Security review of R10/R13 (P0) | Done (second pass in `docs/security-review.md`): M-02 fixed (borrow signature unusable outside Ìpín), L-04 fixed (relayer trove hints); **Vault `0x69aF…` predates the fix: redeploy** |
 | Mainnet deploy (P0) | Not started: needs the testnet redeploy + rehearsal first, real BTC/MUSD and your go-ahead |
 | Real sender evidence; track and team in the form | Guide and form draft ready: `docs/evidence/interview-guide.md`, `docs/evidence/wave2-form.md`; interviews and team names pending |
-| P1: x402 agent float, templates, naira payouts | Not started |
+| P1: templates | Done: 7 presets on `/send/new` (`?template=`), each tested against the form's rules |
+| P1: x402 agent float (step A) | Done (Ìpín side): weekly top-up to the agent's wallet in one transaction, R7 warning; `docs/agents.md`. Not verified: an agent paying a live x402 service |
+| P1: naira payouts | Blocked on a licensed partner |
 
 ## Lessons from testnet (ADR-020 addendum)
 
