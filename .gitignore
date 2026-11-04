@@ -35,3 +35,6 @@ Thumbs.db
 # Relayer runtime state and logs
 relayer/data/
 logs/
+
+# signed one-off call written by script/BorrowToPay.s.sol
+deployments/*.calldata

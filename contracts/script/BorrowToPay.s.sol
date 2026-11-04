@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Script} from "forge-std/Script.sol";
 
 import {Vault} from "../src/Vault.sol";
@@ -21,8 +20,10 @@ interface ITroveManagerStatus {
 /// @dev Needs an open trove for the DEPLOYER_KEY address (borrow once at
 ///      https://testnet.mezo.org). Env: DEPLOYER_KEY, DEPLOYMENTS_FILE,
 ///      MERCHANT_ADDRESS (default: a fixed demo address), TROVE_MANAGER_ADDRESS
-///      (default: Mezo testnet TroveManager).
-///      `forge script script/BorrowToPay.s.sol --rpc-url mezo_testnet --broadcast`
+///      (default: Mezo testnet TroveManager), CALLDATA_FILE.
+///      1. `forge script script/BorrowToPay.s.sol --rpc-url mezo_testnet --broadcast`
+///      2. `cast send <vault> $(cat ../deployments/borrow-to-pay.calldata)
+///         --private-key $DEPLOYER_KEY --rpc-url https://rpc.test.mezo.org`
 contract BorrowToPay is Script {
     bytes32 private constant _DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
@@ -34,15 +35,17 @@ contract BorrowToPay is Script {
 
     error BorrowToPayFailed(string what);
 
-    /// @notice Run the checkout. Forge prints the returned values.
+    /// @notice Create the checkout pot, then write the signed `borrowAndPay`
+    ///         call to CALLDATA_FILE for `cast send`. Forge cannot simulate
+    ///         the borrow itself: Mezo's price feed reads a chain precompile
+    ///         (0x7b7c...0015) that only a real Mezo node runs.
     /// @return potId The checkout pot.
-    /// @return merchant Who was paid.
-    /// @return merchantGot MUSD the merchant received (1 MUSD).
-    /// @return borrowed MUSD borrowed (price + fee).
-    function run() external returns (uint256 potId, address merchant, uint256 merchantGot, uint256 borrowed) {
+    /// @return merchant Who will be paid.
+    /// @return borrowed MUSD to borrow (price + fee).
+    /// @return data The `borrowAndPay` calldata, also written to CALLDATA_FILE.
+    function run() external returns (uint256 potId, address merchant, uint256 borrowed, bytes memory data) {
         string memory json = vm.readFile(vm.envOr("DEPLOYMENTS_FILE", string("../deployments/mezo-testnet.json")));
         Vault vault = Vault(vm.parseJsonAddress(json, ".pots"));
-        IERC20 musd = IERC20(vm.parseJsonAddress(json, ".musd"));
         uint256 key = vm.envUint("DEPLOYER_KEY");
         merchant = vm.envOr("MERCHANT_ADDRESS", vm.addr(uint256(keccak256("ipin-showcase-merchant"))));
         if (vault.borrowerOperations() == address(0)) revert BorrowToPayFailed("vault has no borrow-to-pay: redeploy");
@@ -53,21 +56,22 @@ contract BorrowToPay is Script {
 
         potId = vault.potCount() + 1;
         borrowed = _PRICE + vault.fee();
-        uint256 before = musd.balanceOf(merchant);
 
         vm.startBroadcast(key);
         vault.createPot("Checkout", _CAP);
         vault.addPayee(potId, merchant);
-        _checkout(vault, key, potId, merchant, borrowed);
         vm.stopBroadcast();
 
-        merchantGot = musd.balanceOf(merchant) - before;
-        if (merchantGot != _PRICE) revert BorrowToPayFailed("merchant");
-        if (!vault.booksBalance()) revert BorrowToPayFailed("books");
+        data = _checkoutCall(vault, key, potId, merchant, borrowed);
+        vm.writeFile(vm.envOr("CALLDATA_FILE", string("../deployments/borrow-to-pay.calldata")), vm.toString(data));
     }
 
-    /// @dev The approved payment and the borrow, submitted together.
-    function _checkout(Vault _vault, uint256 _key, uint256 _potId, address _merchant, uint256 _borrowed) internal {
+    /// @dev The approved payment and the borrow, encoded as one call.
+    function _checkoutCall(Vault _vault, uint256 _key, uint256 _potId, address _merchant, uint256 _borrowed)
+        internal
+        view
+        returns (bytes memory)
+    {
         PaymentRequest memory req = PaymentRequest({
             potId: _potId,
             payee: _merchant,
@@ -77,8 +81,9 @@ contract BorrowToPay is Script {
             expiry: vm.getBlockTimestamp() + 1 hours
         });
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_key, _vault.hashPaymentRequest(req));
-        _vault.borrowAndPay(
-            _loan(_key, _vault.borrowerOperations(), address(_vault), _borrowed), req, abi.encodePacked(r, s, v)
+        return abi.encodeCall(
+            ICheckout.borrowAndPay,
+            (_loan(_key, _vault.borrowerOperations(), address(_vault), _borrowed), req, abi.encodePacked(r, s, v))
         );
     }
 
