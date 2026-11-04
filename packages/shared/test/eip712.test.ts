@@ -2,6 +2,7 @@ import {
   encodeAbiParameters,
   getAddress,
   hashStruct,
+  hashTypedData,
   keccak256,
   parseAbiParameters,
   toHex,
@@ -18,7 +19,10 @@ import {
   paymentRequestTypes,
   randomNonce,
   recoverPaymentRequestSigner,
+  recoverWithdrawMusdSigner,
   vaultAbi,
+  withdrawMusdDomain,
+  withdrawMusdTypedData,
 } from "../src"
 
 const sender = privateKeyToAccount(
@@ -109,5 +113,68 @@ describe("EIP-712 PaymentRequest", () => {
     const b = randomNonce()
     expect(a).not.toBe(b)
     expect(a < 2n ** 256n && a >= 0n).toBe(true)
+  })
+})
+
+describe("Mezo WithdrawMUSD (R13)", () => {
+  const bos = getAddress("0xD757e3646AF370b15f32EB557F0F8380Df7D639e")
+  const loan = {
+    amount: 1_250_000_000_000_000_000n,
+    borrower: sender.address,
+    recipient: vault,
+    nonce: 0n,
+    deadline: 1_793_809_149n,
+  }
+
+  it("test_R13_borrowSignatureMatchesMezoDigest", async () => {
+    // Mezo's _verifySignature, byte for byte:
+    // keccak256(encodePacked(TYPEHASH, abi.encode(amount, borrower, recipient), nonce, deadline))
+    const typehash = keccak256(
+      toHex(
+        "WithdrawMUSD(uint256 amount,address borrower,address recipient,uint256 nonce,uint256 deadline)",
+      ),
+    )
+    const structHash = keccak256(
+      `${typehash}${encodeAbiParameters(
+        parseAbiParameters("uint256, address, address"),
+        [loan.amount, loan.borrower, loan.recipient],
+      ).slice(2)}${encodeAbiParameters(parseAbiParameters("uint256, uint256"), [
+        loan.nonce,
+        loan.deadline,
+      ]).slice(2)}`,
+    )
+    const domainSeparator = keccak256(
+      encodeAbiParameters(
+        parseAbiParameters("bytes32, bytes32, bytes32, uint256, address"),
+        [
+          keccak256(
+            toHex(
+              "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)",
+            ),
+          ),
+          keccak256(toHex("BorrowerOperationsSignatures")),
+          keccak256(toHex("1")),
+          BigInt(mezoTestnet.id),
+          bos,
+        ],
+      ),
+    )
+    const mezoDigest = keccak256(
+      `0x1901${domainSeparator.slice(2)}${structHash.slice(2)}`,
+    )
+
+    const typed = withdrawMusdTypedData(
+      withdrawMusdDomain(mezoTestnet.id, bos),
+      loan,
+    )
+    expect(hashTypedData(typed)).toBe(mezoDigest)
+    const signature = await sender.signTypedData(typed)
+    expect(
+      await recoverWithdrawMusdSigner(
+        withdrawMusdDomain(mezoTestnet.id, bos),
+        loan,
+        signature,
+      ),
+    ).toBe(sender.address)
   })
 })

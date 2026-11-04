@@ -92,6 +92,7 @@ Addresses are checksummed. Errors are `{ "error": { "code": string, "message": s
 | GET | `/requests` | `?potId=&status=pending\|approved\|executed\|rejected\|failed` | `Request[]` |
 | GET | `/requests/:id` | — | `Request` |
 | POST | `/requests/:id/approve` | `{ paymentRequest, senderSignature }` (EIP-712, see contracts interface) | `{ txHash }` after the relayer submits `execute` |
+| POST | `/requests/:id/approve-with-loan` | `{ paymentRequest, senderSignature, loan: { amount, upperHint, lowerHint, deadline, signature } }`; `loan.signature` is the sender's Mezo `WithdrawMUSD` (domain `BorrowerOperationsSignatures` v1, recipient = Vault) and `loan.amount` must be `amount + fee` (R13) | `{ txHash }` after the relayer submits `borrowAndPay` |
 | POST | `/requests/:id/reject` | `{ senderSignature }` (sender signs `"Ipin reject " + id`) | `{ ok }` |
 
 `Request` = `{ id, potId, payee, item, quantity, unitPrice, amount, vendor, note?, requester,

@@ -12,6 +12,7 @@ import {
 
 import {
   type ApproveBody,
+  type ApproveWithLoanBody,
   type CreateInviteBody,
   type CreateRequestBody,
   type HealthJson,
@@ -270,7 +271,46 @@ export class RelayerService {
    * request, simulate `execute`, broadcast it with the relayer key and wait for
    * the receipt. pending -> approved (tx sent) -> executed | failed.
    */
-  async approve(id: string, body: ApproveBody): Promise<{ txHash: Hex }> {
+  approve(id: string, body: ApproveBody): Promise<{ txHash: Hex }> {
+    return this.settleApproved(id, body, "execute", (chain) =>
+      chain.submitExecute(body.paymentRequest, body.senderSignature),
+    )
+  }
+
+  /**
+   * R13: the sender approved and pays with MUSD borrowed against their BTC
+   * trove. Same checks as `approve`; the loan must be exactly amount + fee
+   * (the Vault enforces it too). One transaction: Mezo mints into the Vault,
+   * the Vault credits the pot and pays the payee.
+   */
+  async approveWithLoan(
+    id: string,
+    body: ApproveWithLoanBody,
+  ): Promise<{ txHash: Hex }> {
+    const { chain } = this.chain()
+    const expected = body.paymentRequest.amount + (await chain.fee())
+    if (body.loan.amount !== expected) {
+      throw new ApiError(
+        422,
+        "BAD_REQUEST",
+        `loan must be amount + fee (${expected}), got ${body.loan.amount}`,
+      )
+    }
+    return this.settleApproved(id, body, "borrowAndPay", (c) =>
+      c.submitBorrowAndPay(
+        body.loan,
+        body.paymentRequest,
+        body.senderSignature,
+      ),
+    )
+  }
+
+  private async settleApproved(
+    id: string,
+    body: ApproveBody,
+    what: "execute" | "borrowAndPay",
+    submit: (chain: Chain) => Promise<Hex>,
+  ): Promise<{ txHash: Hex }> {
     const request = this.getRequest(id)
     if (request.status !== "pending") {
       throw new ApiError(409, "INVALID_STATE", `request is ${request.status}`)
@@ -325,14 +365,14 @@ export class RelayerService {
 
       let txHash: Hex
       try {
-        txHash = await chain.submitExecute(pr, body.senderSignature)
+        txHash = await submit(chain)
       } catch (err) {
         const reason =
           err instanceof SimulationError ? err.reason : describeError(err)
         this.opts.store.updateRequest(id, { error: reason })
         this.opts.logger.warn(
           { id, reason },
-          "execute rejected before broadcast",
+          `${what} rejected before broadcast`,
         )
         throw new ApiError(
           err instanceof SimulationError ? 422 : 502,
@@ -347,7 +387,7 @@ export class RelayerService {
       })
       this.opts.logger.info(
         { id, txHash, sig: shortHex(body.senderSignature) },
-        "execute sent",
+        `${what} sent`,
       )
 
       const settled = this.settle(id, txHash, chain)
@@ -363,7 +403,7 @@ export class RelayerService {
         throw new ApiError(
           502,
           "EXECUTION_FAILED",
-          `execute reverted on-chain (tx ${txHash})`,
+          `${what} reverted on-chain (tx ${txHash})`,
         )
       }
       return { txHash }

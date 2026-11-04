@@ -2,6 +2,7 @@ import { type Address, getAddress, type Hex, keccak256, toHex } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
 
 import {
+  type Borrow,
   type CreateRequestBodyJson,
   type Deployments,
   mezoTestnet,
@@ -60,6 +61,7 @@ export class FakeChain implements Chain {
   now = 1_000n
   schedules: Schedule[] = []
   executeCalls: { request: PaymentRequest; signature: Hex }[] = []
+  borrowCalls: { loan: Borrow; request: PaymentRequest; signature: Hex }[] = []
   scheduleCalls: bigint[] = []
   simulateError: string | undefined
   receipt: "success" | "reverted" | "hang" = "success"
@@ -80,6 +82,18 @@ export class FakeChain implements Chain {
     }
     this.executeCalls.push({ request, signature })
     return Promise.resolve(keccak256(toHex(`tx${this.executeCalls.length}`)))
+  }
+
+  submitBorrowAndPay = (
+    loan: Borrow,
+    request: PaymentRequest,
+    signature: Hex,
+  ) => {
+    if (this.simulateError !== undefined) {
+      return Promise.reject(new SimulationError(this.simulateError))
+    }
+    this.borrowCalls.push({ loan, request, signature })
+    return Promise.resolve(keccak256(toHex(`borrow${this.borrowCalls.length}`)))
   }
 
   submitExecuteSchedule = (id: bigint) => {

@@ -94,3 +94,81 @@ export function randomNonce(): bigint {
   for (const b of bytes) n = (n << 8n) | BigInt(b)
   return n
 }
+
+// --- Mezo borrow signature (R13) ---
+
+/**
+ * Mezo's `BorrowerOperationsSignatures` EIP-712 domain (mezo-org/musd).
+ * The borrower signs WithdrawMUSD so anyone can submit the borrow; the MUSD
+ * is minted to `recipient` (the Vault) and the debt lands on their trove.
+ */
+export const MEZO_BORROW_DOMAIN_NAME = "BorrowerOperationsSignatures"
+export const MEZO_BORROW_DOMAIN_VERSION = "1"
+
+/**
+ * Mezo hashes `abi.encodePacked(TYPEHASH, abi.encode(amount, borrower,
+ * recipient), nonce, deadline)`. Every field is one 32-byte word, so that is
+ * exactly the standard EIP-712 struct hash of this type (eip712.test.ts
+ * checks it byte for byte).
+ */
+export const withdrawMusdTypes = {
+  WithdrawMUSD: [
+    { name: "amount", type: "uint256" },
+    { name: "borrower", type: "address" },
+    { name: "recipient", type: "address" },
+    { name: "nonce", type: "uint256" },
+    { name: "deadline", type: "uint256" },
+  ],
+} as const
+
+export interface WithdrawMusd {
+  amount: bigint
+  borrower: Address
+  recipient: Address
+  nonce: bigint
+  deadline: bigint
+}
+
+export interface WithdrawMusdDomain {
+  name: typeof MEZO_BORROW_DOMAIN_NAME
+  version: typeof MEZO_BORROW_DOMAIN_VERSION
+  chainId: number
+  verifyingContract: Address
+}
+
+export function withdrawMusdDomain(
+  chainId: number,
+  borrowerOperationsSignatures: Address,
+): WithdrawMusdDomain {
+  return {
+    name: MEZO_BORROW_DOMAIN_NAME,
+    version: MEZO_BORROW_DOMAIN_VERSION,
+    chainId,
+    verifyingContract: borrowerOperationsSignatures,
+  }
+}
+
+/** Arguments for viem `signTypedData` (the borrower signs the loan). */
+export function withdrawMusdTypedData(
+  domain: WithdrawMusdDomain,
+  message: WithdrawMusd,
+) {
+  return {
+    domain,
+    types: withdrawMusdTypes,
+    primaryType: "WithdrawMUSD",
+    message,
+  } as const
+}
+
+/** EOA signer of a WithdrawMUSD signature. */
+export function recoverWithdrawMusdSigner(
+  domain: WithdrawMusdDomain,
+  message: WithdrawMusd,
+  signature: Hex,
+): Promise<Address> {
+  return recoverTypedDataAddress({
+    ...withdrawMusdTypedData(domain, message),
+    signature,
+  })
+}

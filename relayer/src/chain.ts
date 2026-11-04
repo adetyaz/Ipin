@@ -18,7 +18,7 @@ import {
 } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
 
-import { type PaymentRequest, vaultAbi } from "@ipin/shared"
+import { type Borrow, type PaymentRequest, vaultAbi } from "@ipin/shared"
 
 export interface Schedule {
   id: bigint
@@ -45,6 +45,12 @@ export interface Chain {
   fee(): Promise<bigint>
   /** Simulate then broadcast `execute`; throws SimulationError if it would revert. */
   submitExecute(request: PaymentRequest, signature: Hex): Promise<Hex>
+  /** Simulate then broadcast `borrowAndPay` (R13); throws SimulationError if it would revert. */
+  submitBorrowAndPay(
+    loan: Borrow,
+    request: PaymentRequest,
+    signature: Hex,
+  ): Promise<Hex>
   /** Simulate then broadcast `executeSchedule`; throws SimulationError if it would revert. */
   submitExecuteSchedule(scheduleId: bigint): Promise<Hex>
   waitForReceipt(hash: Hex, timeoutMs?: number): Promise<ReceiptStatus>
@@ -137,6 +143,21 @@ export function createViemChain(opts: ViemChainOptions): Chain {
           ...read,
           functionName: "execute",
           args: [request, signature],
+          account,
+        })
+      } catch (err) {
+        throw new SimulationError(describeError(err))
+      }
+      return walletClient.writeContract(simulated.request)
+    },
+
+    async submitBorrowAndPay(loan, request, signature) {
+      let simulated
+      try {
+        simulated = await publicClient.simulateContract({
+          ...read,
+          functionName: "borrowAndPay",
+          args: [loan, request, signature],
           account,
         })
       } catch (err) {

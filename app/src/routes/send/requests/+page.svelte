@@ -3,6 +3,7 @@
   import type { Address } from "viem"
 
   import { relayer, relayerUrl } from "#/api/relayer"
+  import { type Credit, readCredit } from "#/chain/credit"
   import { type PotView, readFee, readPayees, readPotsOf } from "#/chain/vault"
   import { wallet } from "#/chain/wallet.svelte"
   import RequestCard from "#/sender/RequestCard.svelte"
@@ -13,6 +14,7 @@
   let payees = $state<Map<string, Address[]>>(new Map())
   let requests = $state<Request[] | null>(null)
   let fee = $state<bigint | null>(null)
+  let credit = $state<Credit | undefined>(undefined)
   let error = $state<string | null>(null)
 
   async function load(owner: Address) {
@@ -22,6 +24,8 @@
       const lists = await Promise.all(mine.map((p) => readPayees(p.id)))
       payees = new Map(mine.map((p, i) => [p.id.toString(), lists[i] ?? []]))
       fee = await readFee().catch(() => null)
+      // Borrow-to-pay is optional: if Mezo can't be read, just don't offer it.
+      credit = await readCredit(owner).catch(() => undefined)
       await loadRequests()
     } catch (err) {
       error = err instanceof Error ? err.message : "Couldn't load requests."
@@ -93,6 +97,7 @@
                 pot={pots.get(r.potId.toString())}
                 payees={payees.get(r.potId.toString()) ?? []}
                 {fee}
+                {credit}
                 onchange={changed}
               />
             {/each}
@@ -110,6 +115,7 @@
                 pot={pots.get(r.potId.toString())}
                 payees={payees.get(r.potId.toString()) ?? []}
                 {fee}
+                {credit}
                 onchange={changed}
               />
             {/each}

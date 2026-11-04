@@ -7,6 +7,7 @@ import {
   type PaymentRequest,
   rejectMessage,
   requestSchema,
+  toBorrowJson,
   toPaymentRequestJson,
 } from "@ipin/shared"
 
@@ -210,6 +211,71 @@ describe("POST /requests", () => {
     )
     expect((await call("GET", "/requests?status=bogus")).status).toBe(400)
     expect((await call("GET", "/requests/nope")).status).toBe(404)
+  })
+})
+
+function loanFor(amount: bigint) {
+  return toBorrowJson({
+    amount,
+    upperHint: "0x0000000000000000000000000000000000000000",
+    lowerHint: "0x0000000000000000000000000000000000000000",
+    deadline: 10_000_000n,
+    signature: `0x${"22".repeat(65)}`,
+  })
+}
+
+describe("POST /requests/:id/approve-with-loan", () => {
+  it("test_R13_relayerSubmitsBorrowAndPay: pending -> executed", async () => {
+    const { call, chain, id } = await createPending()
+    const pr = paymentRequestFor()
+    const res = await call("POST", `/requests/${id}/approve-with-loan`, {
+      ...(await approveBody(pr)),
+      loan: loanFor(pr.amount + chain.feeAmount),
+    })
+    expect(res.status).toBe(200)
+    expect(chain.executeCalls).toHaveLength(0)
+    expect(chain.borrowCalls).toHaveLength(1)
+    expect(chain.borrowCalls[0]?.request).toEqual(pr)
+    expect(chain.borrowCalls[0]?.loan.amount).toBe(pr.amount + chain.feeAmount)
+    const r = requestSchema.parse((await call("GET", `/requests/${id}`)).json)
+    expect(r.status).toBe("executed")
+  })
+
+  it("test_R13_relayerRefusesLoanNotAmountPlusFee", async () => {
+    const { call, chain, id } = await createPending()
+    const pr = paymentRequestFor()
+    const res = await call("POST", `/requests/${id}/approve-with-loan`, {
+      ...(await approveBody(pr)),
+      loan: loanFor(pr.amount),
+    })
+    expect(res.status).toBe(422)
+    expect(errorCode(res.json)).toBe("BAD_REQUEST")
+    expect(chain.borrowCalls).toHaveLength(0)
+  })
+
+  it("test_R13_relayerNeedsSenderApproval", async () => {
+    const { call, chain, id } = await createPending()
+    const pr = paymentRequestFor()
+    const res = await call("POST", `/requests/${id}/approve-with-loan`, {
+      ...(await approveBody(pr, await signApproval(pr, requester))),
+      loan: loanFor(pr.amount + chain.feeAmount),
+    })
+    expect(errorCode(res.json)).toBe("BAD_SIGNATURE")
+    expect(chain.borrowCalls).toHaveLength(0)
+  })
+
+  it("reports a borrow the chain would refuse, without broadcasting", async () => {
+    const chain = new FakeChain()
+    chain.simulateError = "Sending BTC failed"
+    const { call, id } = await createPending(chain)
+    const pr = paymentRequestFor()
+    const res = await call("POST", `/requests/${id}/approve-with-loan`, {
+      ...(await approveBody(pr)),
+      loan: loanFor(pr.amount + chain.feeAmount),
+    })
+    expect(res.status).toBe(422)
+    expect(errorCode(res.json)).toBe("SIMULATION_FAILED")
+    expect(chain.borrowCalls).toHaveLength(0)
   })
 })
 
