@@ -26,10 +26,10 @@ Wave 2 and beyond (subscriptions, x402 agent budgets, borrow-to-pay checkout, te
 
 - **MUSD** is the unit of every pot, rule and payment (18-decimal base units, EIP-2612 permit for one-transaction setup).
 - **MUSD savings vault (sMUSD):** idle pot money is deposited into Mezo's `MUSDSavingsRate` from the Vault and withdrawn back to the same pot; yield is credited to pots pro rata (R10, ADR-019). Testnet sMUSD: `0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16`. Trust assumption: sMUSD is upgradeable and its owner can change its strategy.
-- **Borrow-to-pay:** pay a merchant with MUSD borrowed against your BTC trove through Mezo's `BorrowerOperationsSignatures`, in the same transaction as the payment; if any check fails, nothing is borrowed (R13, ADR-020). Testnet: `0xD757e3646AF370b15f32EB557F0F8380Df7D639e`. **On-chain:** a pot with no money paid a merchant 1 MUSD borrowed against the sender's BTC trove, in one transaction: [`0x4cfa5910…c374`](https://explorer.test.mezo.org/tx/0x4cfa5910cf323289af53047eac0409a8e38b490b01fbbf2b5b49a587cc75c374).
+- **Borrow-to-pay:** pay a merchant with MUSD borrowed against your BTC trove through Mezo's `BorrowerOperationsSignatures`, in the same transaction as the payment; if any check fails, nothing is borrowed (R13, ADR-020). Testnet: `0xD757e3646AF370b15f32EB557F0F8380Df7D639e`. **On-chain:** a pot with no money paid a merchant 1 MUSD borrowed against the sender's BTC trove, in one transaction: [`0x3d3463a8…a467`](https://explorer.test.mezo.org/tx/0x3d3463a89506f5c2b859a911ac2c363ec4db0a85ef7f67c5f25984bd532ca467).
 - **Gas in BTC:** the relayer pays BTC gas so requesters need no wallet, and takes a flat MUSD fee.
 
-**On-chain evidence** (Mezo testnet, Vault [`0x8B6D…7082`](https://explorer.test.mezo.org/address/0x8B6D769249e97aEefE1Bc2a60318E8297AAa7082) unless noted):
+**On-chain evidence** (Mezo testnet, all on Vault [`0x8B6D…7082`](https://explorer.test.mezo.org/address/0x8B6D769249e97aEefE1Bc2a60318E8297AAa7082)):
 
 | What happened | Transaction |
 | --- | --- |
@@ -40,7 +40,7 @@ Wave 2 and beyond (subscriptions, x402 agent budgets, borrow-to-pay checkout, te
 | Relayer fees claimed in MUSD (`claimFees`) | [`0x29a39fbc…d9f8`](https://explorer.test.mezo.org/tx/0x29a39fbcc5a08db9ac5c1801f8f8fccdee46af352bdcb7aaca3810b31436d9f8) |
 | Idle pot money moved into Mezo's sMUSD (`moveToSavings`) | [`0x2ee64d05…b879`](https://explorer.test.mezo.org/tx/0x2ee64d05a58f940f1b9a1ed3365bb1d18a7e8c6a8aa7d0d7b96fb12232fab879) |
 | Brought back from sMUSD to the same pot (`withdrawFromSavings`) | [`0x636f3e27…f17a`](https://explorer.test.mezo.org/tx/0x636f3e27ad4a70d2886a46aeeb12b01bb3db1c2d0e6032fe50d2efbd5957f17a) |
-| Empty pot pays a merchant with MUSD borrowed against BTC (`borrowAndPay`, Mezo `withdrawMUSDWithSignature`), on the previous Vault [`0x69aF…48f8`](https://explorer.test.mezo.org/address/0x69aF910aF825faE2D06f320080a0A1023A0a48f8) | [`0x4cfa5910…c374`](https://explorer.test.mezo.org/tx/0x4cfa5910cf323289af53047eac0409a8e38b490b01fbbf2b5b49a587cc75c374) |
+| Empty pot pays a merchant with MUSD borrowed against BTC (`borrowAndPay`, Mezo `withdrawMUSDWithSignature`) | [`0x3d3463a8…a467`](https://explorer.test.mezo.org/tx/0x3d3463a89506f5c2b859a911ac2c363ec4db0a85ef7f67c5f25984bd532ca467) |
 
 Scripts that produced them: `contracts/script/Showcase.s.sol` and `contracts/script/BorrowToPay.s.sol`.
 
