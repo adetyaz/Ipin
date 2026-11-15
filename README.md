@@ -9,7 +9,7 @@
 - **Live app:** https://ipin-ten.vercel.app
 - **Relayer health:** https://ipin.onrender.com/health
 - **Live on Mezo testnet:** Vault [`0x8B6D769249e97aEefE1Bc2a60318E8297AAa7082`](https://explorer.test.mezo.org/address/0x8B6D769249e97aEefE1Bc2a60318E8297AAa7082) (verified)
-- **Demo video:** https://youtu.be/MmmpK6DZjj0 · 2-minute pitch script: [docs/demo-video.md](docs/demo-video.md)
+- **Demo video (2 min):** https://youtu.be/nU1rUzyl1tM · Wave 1 video: https://youtu.be/MmmpK6DZjj0
 - **Pitch deck:** [Google Slides](https://docs.google.com/presentation/d/1TV1C-6S-KPhzUcZUcKJrSV19zjBCZ63WyillbbS2ReY/edit?usp=sharing)
 - **Try it click by click:** [docs/demo.md](docs/demo.md)
 

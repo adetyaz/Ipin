@@ -114,5 +114,5 @@ Repo: https://github.com/adetyaz/Ipin
 - App: https://ipin-ten.vercel.app
 - Relayer health: https://ipin.onrender.com/health
 - Repo: https://github.com/adetyaz/Ipin
-- Demo video: [[new 2-minute video link]]
+- Demo video: https://youtu.be/nU1rUzyl1tM
 - Deck: https://docs.google.com/presentation/d/1TV1C-6S-KPhzUcZUcKJrSV19zjBCZ63WyillbbS2ReY/edit?usp=sharing

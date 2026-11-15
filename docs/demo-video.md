@@ -52,5 +52,5 @@ the waiting: cut MetaMask pop-ups and relayer waits in the edit.
 
 ## After recording
 
-Upload to YouTube (unlisted is fine), then put the link in the README "Demo video" line and in
-`docs/evidence/wave2-form.md` under Links.
+Published: https://youtu.be/nU1rUzyl1tM (linked from the README "Demo video" line and
+`docs/evidence/wave2-form.md` under Links).
