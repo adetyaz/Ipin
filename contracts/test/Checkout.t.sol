@@ -111,9 +111,24 @@ contract VaultCheckoutTest is IpinTest {
     }
 
     function test_R13_acceptsMezosZeroValueCollateralCall() public {
-        // Mezo's ActivePool.sendCollateral(vault, 0) during every borrow.
+        // During borrowAndPay, Mezo's ActivePool.sendCollateral(vault, 0) must
+        // succeed: covered end to end by test_R13_borrowAndPayInOneTransaction.
+        // Outside a checkout the same call is refused (M-02).
         (bool ok,) = address(_vault).call{value: 0}("");
-        assertTrue(ok, "vault accepts Mezo's zero-value BTC call");
+        assertFalse(ok, "zero-value call outside a checkout is refused");
+    }
+
+    function test_R13_loanSignatureUnusableOutsideCheckout() public {
+        // M-02: anyone who sees the sender's WithdrawMUSD signature (relayer,
+        // mempool) submits it to Mezo directly. Without the guard Mezo would
+        // mint into the Vault, owed to no pot, and the sender carries the debt.
+        ICheckout.Borrow memory loan = _borrow(_senderKey, 10e18 + _FEE);
+        vm.expectRevert(MockBorrowerOperationsSignatures.SendingBtcFailed.selector);
+        _borrowerOps.withdrawMUSDWithSignature(
+            loan.amount, address(0), address(0), _sender, address(_vault), loan.signature, loan.deadline
+        );
+        assertEq(_borrowerOps.debt(_sender), 0, "no debt");
+        assertEq(_musd.balanceOf(address(_vault)), 0, "nothing stranded in the vault");
     }
 
     function test_R13_rejectsNativeBtc() public {

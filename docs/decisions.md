@@ -222,3 +222,7 @@ don't build anything that depends on it) · **superseded**. Append new entries; 
   oracle is precompile `0x7b7c...0015`), so `script/RehearseBorrowToPay.s.sol` replays a checkout
   on a fork against Mezo's real contracts with only that oracle stubbed, before any redeploy.
   Needs one more Vault redeploy.
+- Addendum (2026-11-04, security review M-02): `receive()` accepts Mezo's zero-value call only while
+  `_borrowInto` waits on Mezo, so a borrow signature submitted to Mezo directly reverts instead of
+  stranding MUSD in the Vault with the sender's debt. Relies on Mezo making that call (L-05);
+  `RehearseBorrowToPay` checks it. The relayer fills trove hints (L-04). Needs a Vault redeploy.

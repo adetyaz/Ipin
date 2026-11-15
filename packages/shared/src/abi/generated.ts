@@ -2130,6 +2130,11 @@ export const vaultAbi = [
   },
   {
     "type": "error",
+    "name": "BorrowOutsideCheckout",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "BorrowShortfall",
     "inputs": [
       {

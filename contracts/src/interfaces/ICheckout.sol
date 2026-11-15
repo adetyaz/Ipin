@@ -26,6 +26,9 @@ interface ICheckout {
     error BorrowShortfall(uint256 expected, uint256 received);
     /// @notice BTC was sent to the Vault; it holds MUSD only.
     error NativeBtcNotAccepted();
+    /// @notice Mezo called the Vault outside `borrowAndPay`: a borrow
+    ///         signature was submitted directly, which would strand the MUSD.
+    error BorrowOutsideCheckout();
 
     /// @notice Borrow exactly `_request.amount + fee` against the pot owner's
     ///         trove and settle `_request` (sender-signed, as {execute}).

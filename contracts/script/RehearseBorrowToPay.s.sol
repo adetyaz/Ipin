@@ -5,6 +5,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 import {Vault} from "../src/Vault.sol";
+import {IBorrowerOperationsSignatures} from "../src/interfaces/IBorrowerOperationsSignatures.sol";
 import {ICheckout} from "../src/interfaces/ICheckout.sol";
 import {PaymentRequest} from "../src/libraries/PaymentRequests.sol";
 import {BorrowToPay} from "./BorrowToPay.s.sol";
@@ -28,9 +29,14 @@ contract RehearseBorrowToPay is BorrowToPay {
     /// @notice Run the rehearsal.
     /// @return deployedVaultResult Why the currently deployed Vault fails
     ///         (empty if it succeeds).
+    /// @return directSubmission What happens when the borrow signature is sent
+    ///         to Mezo directly, bypassing the Vault (must fail, M-02).
     /// @return merchantGot MUSD the merchant received through a fresh Vault
     ///         built from this checkout (must be 1 MUSD).
-    function rehearse() external returns (string memory deployedVaultResult, uint256 merchantGot) {
+    function rehearse()
+        external
+        returns (string memory deployedVaultResult, string memory directSubmission, uint256 merchantGot)
+    {
         uint256 key = vm.envUint("DEPLOYER_KEY");
         address owner = vm.addr(key);
         address merchant = vm.addr(uint256(keccak256("ipin-rehearsal-merchant")));
@@ -46,12 +52,31 @@ contract RehearseBorrowToPay is BorrowToPay {
             _TESTNET_SAVINGS,
             _TESTNET_BORROWER_OPS
         );
+        directSubmission = _tryDirect(fresh, key, owner);
         uint256 before = IERC20(_TESTNET_MUSD).balanceOf(merchant);
         string memory freshResult = _tryCheckout(fresh, key, owner, merchant);
         if (bytes(freshResult).length != 0) revert BorrowToPayFailed(freshResult);
+        if (keccak256(bytes(directSubmission)) != keccak256("Sending BTC failed")) {
+            revert BorrowToPayFailed(directSubmission);
+        }
         merchantGot = IERC20(_TESTNET_MUSD).balanceOf(merchant) - before;
         if (merchantGot != _PRICE) revert BorrowToPayFailed("merchant");
         if (!fresh.booksBalance()) revert BorrowToPayFailed("books");
+    }
+
+    /// @dev Submit a borrow signature for `_vault` straight to Mezo.
+    function _tryDirect(Vault _vault, uint256 _key, address _owner) internal returns (string memory) {
+        ICheckout.Borrow memory loan = _loan(_key, _TESTNET_BORROWER_OPS, address(_vault), _PRICE + _vault.fee());
+        try IBorrowerOperationsSignatures(_TESTNET_BORROWER_OPS)
+            .withdrawMUSDWithSignature(
+                loan.amount, address(0), address(0), _owner, address(_vault), loan.signature, loan.deadline
+            ) {
+            return "accepted: MUSD stranded in the vault";
+        } catch Error(string memory reason) {
+            return reason;
+        } catch (bytes memory raw) {
+            return raw.length == 0 ? "revert (no data)" : vm.toString(raw);
+        }
     }
 
     /// @dev Replace the price precompile with a stub answering `_price`.

@@ -10,13 +10,19 @@ import {
   type Hex,
   keccak256,
   numberToHex,
+  parseTransaction,
   zeroAddress,
 } from "viem"
 import { describe, expect, it } from "vitest"
 
 import { mezoTestnet, type PaymentRequest, vaultAbi } from "@ipin/shared"
 
-import { createViemChain, SimulationError } from "../src/chain"
+import {
+  BORROW_AND_PAY_GAS,
+  createViemChain,
+  SimulationError,
+  withTroveHints,
+} from "../src/chain"
 
 import { payee, relayerAccount, sender, signApproval, vault } from "./helpers"
 
@@ -79,6 +85,8 @@ function mockRpc(opts: MockOptions = {}) {
             }),
           })
         }
+        return "0x"
+      case "borrowAndPay":
         return "0x"
       case "scheduleCount":
         return encodeFunctionResult({ abi: vaultAbi, functionName, result: 1n })
@@ -222,6 +230,25 @@ describe("createViemChain (mocked RPC)", () => {
     expect(sent).toHaveLength(0)
   })
 
+  it("test_R13_relayerSendsBorrowWithMezoGasLimit", async () => {
+    // Mezo's node underestimates borrow gas (its BTC price oracle is a
+    // precompile): a borrowAndPay sent at the estimate ran out of gas on
+    // testnet. The relayer sends it with a fixed limit instead.
+    const { chain, calls, sent } = mockRpc()
+    const loan = {
+      amount: 5n + 25n * 10n ** 16n,
+      upperHint: zeroAddress,
+      lowerHint: zeroAddress,
+      deadline: 2_000_000_000n,
+      signature: `0x${"22".repeat(65)}` as const,
+    }
+    await chain.submitBorrowAndPay(loan, pr, await signApproval(pr))
+    expect(calls).toContain("borrowAndPay")
+    expect(sent).toHaveLength(1)
+    expect(parseTransaction(sent[0] ?? "0x").gas).toBe(BORROW_AND_PAY_GAS)
+    expect(BORROW_AND_PAY_GAS).toBeGreaterThan(1_361_811n)
+  })
+
   it("reads schedules with their next due time", async () => {
     const { chain } = mockRpc()
     expect(await chain.scheduleCount()).toBe(1n)
@@ -233,5 +260,48 @@ describe("createViemChain (mocked RPC)", () => {
       active: true,
       nextDue: 123n,
     })
+  })
+})
+
+describe("withTroveHints (security review L-04)", () => {
+  const owner = "0x99BD4BDD7A9c22E2a35F09A6Bd17f038D5E5eB87" as const
+  const prev = "0x1111111111111111111111111111111111111111" as const
+  const next = "0x2222222222222222222222222222222222222222" as const
+  const zero = "0x0000000000000000000000000000000000000000" as const
+  const loan = {
+    amount: 1_250_000_000_000_000_000n,
+    upperHint: zero,
+    lowerHint: zero,
+    deadline: 1n,
+    signature: `0x${"22".repeat(65)}` as const,
+  }
+  const fakeClient = (fail = false) =>
+    ({
+      readContract: ({ functionName }: { functionName: string }) => {
+        if (fail) return Promise.reject(new Error("rpc down"))
+        const answers: Record<string, unknown> = {
+          getPot: { owner },
+          borrowerOperations: "0x3333333333333333333333333333333333333333",
+          troveManager: "0x4444444444444444444444444444444444444444",
+          sortedTroves: "0x5555555555555555555555555555555555555555",
+          getPrev: prev,
+          getNext: next,
+        }
+        return Promise.resolve(answers[functionName])
+      },
+    }) as unknown as Parameters<typeof withTroveHints>[0]
+
+  it("test_R13_relayerHintsTheBorrowersTrovePosition", async () => {
+    const hinted = await withTroveHints(fakeClient(), zero, 1n, loan)
+    expect(hinted.upperHint).toBe(prev)
+    expect(hinted.lowerHint).toBe(next)
+    // The signed fields are untouched.
+    expect(hinted.amount).toBe(loan.amount)
+    expect(hinted.deadline).toBe(loan.deadline)
+    expect(hinted.signature).toBe(loan.signature)
+  })
+
+  it("keeps the app's hints if Mezo can't be read", async () => {
+    expect(await withTroveHints(fakeClient(true), zero, 1n, loan)).toEqual(loan)
   })
 })

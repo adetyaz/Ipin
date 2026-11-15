@@ -27,7 +27,7 @@
   const path: string = $derived(page.url.pathname)
 </script>
 
-<header class="bar">
+<header class="bar" class:with-nav={role === "sender"}>
   <div class="inner">
     <a class="brand" href="/" aria-label="Ìpín home">
       <span class="mark" aria-hidden="true">
@@ -48,6 +48,12 @@
           href="/send/requests"
           aria-current={path.startsWith("/send/requests") ? "page" : undefined}
           >Requests</a
+        >
+        <a
+          href="/send/subscriptions"
+          aria-current={path.startsWith("/send/subscriptions")
+            ? "page"
+            : undefined}>Subscriptions</a
         >
       </nav>
     {/if}
@@ -155,6 +161,18 @@
     color: var(--ink);
     background: var(--surface);
     box-shadow: var(--shadow-1);
+  }
+  /* Three sender tabs on a small phone: the mark alone stands for the brand. */
+  @media (max-width: 479px) {
+    .with-nav .inner {
+      gap: var(--space-2);
+    }
+    .with-nav .word {
+      display: none;
+    }
+    .with-nav nav a {
+      padding: 0 var(--space-2);
+    }
   }
   .right {
     margin-left: auto;

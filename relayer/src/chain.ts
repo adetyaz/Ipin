@@ -18,7 +18,15 @@ import {
 } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
 
-import { type Borrow, type PaymentRequest, vaultAbi } from "@ipin/shared"
+import {
+  type Borrow,
+  mezoBorrowerOperationsAbi,
+  mezoBorrowerOperationsSignaturesAbi,
+  mezoSortedTrovesAbi,
+  mezoTroveManagerAbi,
+  type PaymentRequest,
+  vaultAbi,
+} from "@ipin/shared"
 
 export interface Schedule {
   id: bigint
@@ -57,6 +65,14 @@ export interface Chain {
   scheduleCount(): Promise<bigint>
   getSchedule(scheduleId: bigint): Promise<Schedule>
 }
+
+/**
+ * Gas limit for `borrowAndPay` (R13). Mezo's node underestimates a borrow (the
+ * BTC price oracle is a precompile): a borrowAndPay sent at the estimate
+ * (510,018) ran out of gas on testnet, while a successful one used 1,361,811.
+ * Only gas used is paid; Mezo's block limit is 10,000,000.
+ */
+export const BORROW_AND_PAY_GAS = 3_000_000n
 
 /** The call would revert; `reason` is the decoded custom error when known. */
 export class SimulationError extends Error {
@@ -152,18 +168,27 @@ export function createViemChain(opts: ViemChainOptions): Chain {
     },
 
     async submitBorrowAndPay(loan, request, signature) {
+      const hinted = await withTroveHints(
+        publicClient,
+        vault,
+        request.potId,
+        loan,
+      )
       let simulated
       try {
         simulated = await publicClient.simulateContract({
           ...read,
           functionName: "borrowAndPay",
-          args: [loan, request, signature],
+          args: [hinted, request, signature],
           account,
         })
       } catch (err) {
         throw new SimulationError(describeError(err))
       }
-      return walletClient.writeContract(simulated.request)
+      return walletClient.writeContract({
+        ...simulated.request,
+        gas: BORROW_AND_PAY_GAS,
+      })
     },
 
     async submitExecuteSchedule(scheduleId) {
@@ -214,6 +239,69 @@ export function createViemChain(opts: ViemChainOptions): Chain {
         nextDue,
       }
     },
+  }
+}
+
+/**
+ * Mezo re-sorts the trove on every borrow. Without hints it walks the whole
+ * trove list from the top, which gets expensive as Mezo grows (security
+ * review L-04). The borrower's current neighbours are a near-exact hint for
+ * a small borrow, and Mezo validates hints itself, so a stale one only costs
+ * a short walk. Hints are not part of the borrow signature, so filling them
+ * in changes nothing the sender approved. Any read failure keeps the hints
+ * the app sent (zero).
+ */
+export async function withTroveHints(
+  publicClient: PublicClient<Transport, ViemChain>,
+  vault: Address,
+  potId: bigint,
+  loan: Borrow,
+): Promise<Borrow> {
+  try {
+    const [pot, bos] = await Promise.all([
+      publicClient.readContract({
+        address: vault,
+        abi: vaultAbi,
+        functionName: "getPot",
+        args: [potId],
+      }),
+      publicClient.readContract({
+        address: vault,
+        abi: vaultAbi,
+        functionName: "borrowerOperations",
+      }),
+    ])
+    const bo = await publicClient.readContract({
+      address: bos,
+      abi: mezoBorrowerOperationsSignaturesAbi,
+      functionName: "borrowerOperations",
+    })
+    const troveManager = await publicClient.readContract({
+      address: bo,
+      abi: mezoBorrowerOperationsAbi,
+      functionName: "troveManager",
+    })
+    const sortedTroves = await publicClient.readContract({
+      address: troveManager,
+      abi: mezoTroveManagerAbi,
+      functionName: "sortedTroves",
+    })
+    const list = { address: sortedTroves, abi: mezoSortedTrovesAbi } as const
+    const [upperHint, lowerHint] = await Promise.all([
+      publicClient.readContract({
+        ...list,
+        functionName: "getPrev",
+        args: [pot.owner],
+      }),
+      publicClient.readContract({
+        ...list,
+        functionName: "getNext",
+        args: [pot.owner],
+      }),
+    ])
+    return { ...loan, upperHint, lowerHint }
+  } catch {
+    return loan
   }
 }
 

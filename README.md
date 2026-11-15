@@ -1,60 +1,17 @@
 # Ìpín: Purpose-Bound Money
 
-**Mezo Buildathon (AKINDO) · Wave 1 · Track 2 (Access and Distribution), with Track 1 elements**
+**Mezo Buildathon (AKINDO) · Track 2 (Access and Distribution) + Track 1 (Bitcoin-backed finance)**
 
-Ìpín (working name, Yoruba for "share") lets you send money for a purpose, and makes sure it can only be spent on that purpose. The money waits in MUSD (Mezo's Bitcoin-backed dollar) until it's needed (and, from Wave 2, earns in Mezo's savings vault), and every cent is provable on-chain.
+Ìpín (Yoruba for "share") lets you send money for a purpose, and makes sure it can only be spent on that purpose. The money waits in MUSD (Mezo's Bitcoin-backed dollar), earns in Mezo's savings vault until it's needed, and every cent is provable on-chain.
 
 > **One-liner:** You decide what your money is for, not whoever receives it.
 
-Full plan with diagrams: https://claude.ai/code/artifact/105aeb55-658d-427b-be6e-c1a16a736b93
-
-Wave 2 and beyond (subscriptions, x402 agent budgets, borrow-to-pay checkout, templates): [docs/wave2.md](docs/wave2.md)
-
----
-
-## What it is
-
-Ìpín is purpose-bound money on Mezo. A sender abroad splits MUSD into named pots, such as House and Upkeep, in one transaction. Family or a site manager request items from their phone with no wallet and no gas. The sender approves with one signature, and the vendor is paid directly from the pot, never through the person who asked. Upkeep pays capped monthly allowances automatically. Every payment passes one on-chain policy engine (approved payees, monthly limits, signed approvals), and a live `booksBalance()` check lets anyone verify that the vault covers everything it owes.
-
 - **Live app:** https://ipin-ten.vercel.app
-- **Demo video (2 min):** https://youtu.be/MmmpK6DZjj0
+- **Relayer health:** https://ipin.onrender.com/health
+- **Live on Mezo testnet:** Vault [`0x8B6D769249e97aEefE1Bc2a60318E8297AAa7082`](https://explorer.test.mezo.org/address/0x8B6D769249e97aEefE1Bc2a60318E8297AAa7082) (verified)
+- **Demo video (2 min):** https://youtu.be/nU1rUzyl1tM · Wave 1 video: https://youtu.be/MmmpK6DZjj0
 - **Pitch deck:** [Google Slides](https://docs.google.com/presentation/d/1TV1C-6S-KPhzUcZUcKJrSV19zjBCZ63WyillbbS2ReY/edit?usp=sharing)
-- **Live on Mezo testnet:** Vault [`0x69aF910aF825faE2D06f320080a0A1023A0a48f8`](https://explorer.test.mezo.org/address/0x69aF910aF825faE2D06f320080a0A1023A0a48f8) (verified; savings and borrow-to-pay enabled)
-- **Try it:** [docs/demo.md](docs/demo.md) walks through the house story click by click, including what the contract refuses.
-
-### Mezo integration
-
-- **MUSD** is the unit of every pot, rule and payment (18-decimal base units, EIP-2612 permit for one-transaction setup).
-- **MUSD savings vault (sMUSD):** idle pot money is deposited into Mezo's `MUSDSavingsRate` from the Vault and withdrawn back to the same pot; yield is credited to pots pro rata (R10, ADR-019). Testnet sMUSD: `0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16`. Trust assumption: sMUSD is upgradeable and its owner can change its strategy.
-- **Borrow-to-pay:** pay a merchant with MUSD borrowed against your BTC trove through Mezo's `BorrowerOperationsSignatures`, in the same transaction as the payment; if any check fails, nothing is borrowed (R13, ADR-020). Testnet: `0xD757e3646AF370b15f32EB557F0F8380Df7D639e`. **On-chain:** a pot with no money paid a merchant 1 MUSD borrowed against the sender's BTC trove, in one transaction: [`0x4cfa5910…c374`](https://explorer.test.mezo.org/tx/0x4cfa5910cf323289af53047eac0409a8e38b490b01fbbf2b5b49a587cc75c374).
-- **Gas in BTC:** the relayer pays BTC gas so requesters need no wallet, and takes a flat MUSD fee.
-
-**On-chain evidence** (Mezo testnet, all on Vault [`0x69aF…48f8`](https://explorer.test.mezo.org/address/0x69aF910aF825faE2D06f320080a0A1023A0a48f8)):
-
-| What happened | Transaction |
-| --- | --- |
-| One-transaction setup: create House and Upkeep pots, add payees, split MUSD (`multicall`) | [`0xabff4fb4…9b78`](https://explorer.test.mezo.org/tx/0xabff4fb458d0884ab260803a19d671324456ef6901ec79c5a38cfd931ed69b78) |
-| Sender-approved request paid straight to the vendor (`execute`) | [`0x86b0c760…fd57`](https://explorer.test.mezo.org/tx/0x86b0c7601da34db33b5003c07c5eec46643c87f366190a91a278dac3627efd57) |
-| Monthly allowance created (`createSchedule`) | [`0x6a0f5964…0db5`](https://explorer.test.mezo.org/tx/0x6a0f59648e3c771422547b4c0c1aa7045a1d54e96d447970b1df021c6d670db5) |
-| Allowance paid by the relayer (`executeSchedule`) | [`0x3c0b6cb9…8f23`](https://explorer.test.mezo.org/tx/0x3c0b6cb91a469bf92f97c61ab19548b1bbb69827c6c7b4f8a3f55a049c5f8f23) |
-| Relayer fees claimed in MUSD (`claimFees`) | [`0xf076b540…17d6`](https://explorer.test.mezo.org/tx/0xf076b540be8ff3faa6bfba5fd1a2b6ea5f5516356b88b38fb72b69db49a117d6) |
-| Idle pot money moved into Mezo's sMUSD (`moveToSavings`) | [`0x62ade07d…f4c2`](https://explorer.test.mezo.org/tx/0x62ade07dd4fb79bb7936f944e7abc73bf0122c65f0b14bfe75f13fe5708cf4c2) |
-| Brought back from sMUSD to the same pot (`withdrawFromSavings`) | [`0x2ef11a0f…92ce`](https://explorer.test.mezo.org/tx/0x2ef11a0feaa4807c5df753e85305b5ec7dedcb44c692f08bc26eaa5311e192ce) |
-| Empty pot pays a merchant with MUSD borrowed against BTC (`borrowAndPay`, Mezo `withdrawMUSDWithSignature`) | [`0x4cfa5910…c374`](https://explorer.test.mezo.org/tx/0x4cfa5910cf323289af53047eac0409a8e38b490b01fbbf2b5b49a587cc75c374) |
-
-Scripts that produced them: `contracts/script/Showcase.s.sol` and `contracts/script/BorrowToPay.s.sol`.
-
----
-
-## Start here (for whoever picks this up next)
-
-Status: **Wave 1 built end to end on Mezo testnet.** What's done and what's left: [docs/status.md](docs/status.md). Walkthrough for judges and the video: [docs/demo.md](docs/demo.md).
-
-1. Read this whole file. The **Scope** section is the source of truth: nothing from Wave 2 goes into Wave 1.
-2. Follow the order: rules document → failing tests → contracts → relayer → adapters → screens.
-3. Every money rule (R1–R10) gets a test that fails first, then the fix (the Penny method, see Credits).
-4. Every payment must go through the same path: **signed request → policy check → settlement.** No shortcuts for any use case.
-5. Check the **Open questions** before building anything that depends on them.
+- **Try it click by click:** [docs/demo.md](docs/demo.md)
 
 ---
 
@@ -62,36 +19,86 @@ Status: **Wave 1 built end to end on Mezo testnet.** What's done and what's left
 
 Once money lands at home, the sender loses control of it, and while it waits the naira erodes its value.
 
-The lead story: *"I sent $1,000 home to build my house. Six months later, the money was gone and the foundation wasn't done."*
+*"I sent $1,000 home to build my house. Six months later, the money was gone and the foundation wasn't done."*
 
-## Roles
+## What Ìpín does
+
+A sender abroad puts MUSD into named pots, such as House and Upkeep. Money can leave a pot only:
+
+- to a **payee the sender approved** (a vendor, a builder, a family member),
+- within the pot's **monthly limit**,
+- through a **request the sender signed**, a **schedule** the sender set up, or a **BTC-backed loan** the sender signed.
+
+One on-chain policy engine checks every payment. There is no owner, no admin key, no upgrade and no "emergency" withdrawal. Anyone can call `booksBalance()` to check that the Vault holds everything it owes.
+
+### Roles
 
 | Role | Who | What they do |
 | --- | --- | --- |
 | Sender | A Nigerian abroad (UK, US, Canada, Gulf) | Funds pots, sets rules, approves requests |
-| Requester | A relative or site manager | Raises purchase requests from a phone |
-| Payee | Vendors, builders, family members | Receive money directly, within the rules |
-| Agent (Wave 2) | An AI agent with a budget | Pays services per use, under a cap |
+| Requester | A relative or site manager | Raises purchase requests from a phone, with no wallet and no gas |
+| Payee | Vendors, builders, family members, merchants | Get paid directly, within the rules |
+| Merchant | A school, gym, shop or service | Makes a subscribe link; gets paid on schedule |
+| Agent | An AI agent | Spends a weekly budget topped up from a pot |
 
-## Core flow: building a house with $1,000
+### The house story
 
-1. The sender funds the vault in MUSD (card via Banxa, or an MUSD transfer). It splits into a **House** pot ($750) and an **Upkeep** pot ($250, shared by two people).
-2. The site manager raises a request: "200 bags of cement, Vendor Y, ₦X each."
-3. The sender checks the price and approves on their phone with one signature.
-4. The policy engine checks the pot, payee, cap and nonce; the relayer settles; the vendor is paid directly, never through the requester.
-5. The Upkeep pot pays each person a capped monthly allowance automatically.
-6. Unspent money sits in the MUSD savings vault, and the statement shows the books balance.
+1. The sender splits 10 MUSD into a **House** pot (7.50) and an **Upkeep** pot (2.50), adds the payees and funds both, in **one transaction**.
+2. The site manager opens an invite link on their phone and asks: "5 bags of cement, Vendor Y, 1.00 MUSD each."
+3. The sender checks the price and approves with one signature.
+4. The Vault checks the pot, payee, limit, signature, nonce and expiry, then pays Vendor Y directly. The site manager never touches the money.
+5. The Upkeep pot pays Mama a monthly allowance automatically.
+6. Idle House money sits in Mezo's sMUSD savings vault, earning, until the next request.
+7. A request to an unapproved payee, or above the limit, is refused on-chain.
 
-## Ways money leaves a pot
+## Features
 
-| Mode | Trigger | Example | Wave |
-| --- | --- | --- | --- |
-| On request | Requester asks, sender approves | 200 bags of cement | 1 |
-| On schedule | A date, within a cap | Monthly upkeep allowance | 1 |
-| Per use | A service charges per call (x402), under a sender mandate | An AI agent paying for tools | 2 |
-| Borrow to pay | The sender borrows MUSD against BTC and pays a merchant in one transaction | Paying at checkout without selling BTC | 2 |
+**Pots and setup**
+- Named pots, each with a monthly spending limit.
+- Split a deposit across pots exactly (no dust lost), with any remainder going to one named pot.
+- One-transaction setup: create pots, add payees and fund them in a single signature (multicall + MUSD permit).
+- Seven purpose templates: Build a house, School fees, Medical care, Shop stock, Subscriptions, AI agent budget, Pay with BTC.
 
-The same engine covers school fees, medical bills, small-business stock, grants paid by milestone, subscriptions and agent budgets. Each is a configuration, not a new feature. Recurring payments already work in Wave 1: a schedule to an approved payee is a subscription. See [docs/wave2.md](docs/wave2.md) for the templates and the Wave 2 designs.
+**Ways money leaves a pot**
+
+| Mode | Trigger | Example |
+| --- | --- | --- |
+| On request | A requester asks, the sender signs | 5 bags of cement |
+| On schedule | A date, within the limit; run by the relayer | Mama's monthly allowance, a gym subscription |
+| Borrow to pay | The sender signs a loan against their BTC; the Vault borrows and pays in one transaction | Paying a merchant without selling BTC |
+| Agent budget | A schedule tops up an AI agent's wallet | An agent paying per call (x402) under a weekly cap |
+
+**For requesters:** an invite link gives their phone a key that can only *ask*. They need no wallet, no crypto and no gas, and the contract refuses to pay a requester.
+
+**Subscriptions:** a screen lists everything a pot pays on schedule, with the next date, monthly total, one-tap stop and a "short by $X" warning. A merchant makes a subscribe link without a wallet; the sender signs one transaction that approves the merchant and starts the schedule.
+
+**Savings:** idle pot money moves into Mezo's sMUSD and comes back to the same pot. Yield is shared out per pot by index, so a late saver never takes earlier yield.
+
+**Pay with a BTC loan:** on the approval card, the sender can pay from a BTC loan instead of the pot. The card shows the trove's collateral ratio before and after, and refuses a loan that would leave it under 150%. If any check fails, nothing is borrowed and nothing is paid.
+
+**Statement:** every payment, fee and saving is an on-chain event, and the app shows the books-balance check as a badge.
+
+## Mezo integration
+
+- **MUSD** is the unit of every pot, rule and payment (18-decimal base units, EIP-2612 permit for one-transaction setup).
+- **Savings in sMUSD:** the Vault deposits idle pot money into Mezo's `MUSDSavingsRate` and withdraws it back to the same pot; harvested yield is credited per pot (R10, ADR-019). Testnet sMUSD: `0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16`. Trust assumption: sMUSD is upgradeable and its owner can change its strategy.
+- **Borrow-to-pay:** the Vault calls Mezo's `BorrowerOperationsSignatures.withdrawMUSDWithSignature` with the sender's signed loan, then pays the merchant in the same transaction (R13, ADR-020). Testnet: `0xD757e3646AF370b15f32EB557F0F8380Df7D639e`. A loan signature only works through Ìpín; sent to Mezo directly it reverts, so no MUSD can be stranded.
+- **Gas in BTC:** the relayer pays BTC gas so requesters need nothing, and takes a flat MUSD fee per payment.
+
+**On-chain evidence** (Mezo testnet, all on Vault [`0x8B6D…7082`](https://explorer.test.mezo.org/address/0x8B6D769249e97aEefE1Bc2a60318E8297AAa7082)):
+
+| What happened | Transaction |
+| --- | --- |
+| One-transaction setup: create House and Upkeep pots, add payees, split MUSD (`multicall`) | [`0xf74ad847…459c`](https://explorer.test.mezo.org/tx/0xf74ad8479252d06291fa7354e579f5ecda93959ad074a120eb5d9ad9423d459c) |
+| Sender-approved request paid straight to the vendor (`execute`) | [`0x9a8b2a11…bd3c`](https://explorer.test.mezo.org/tx/0x9a8b2a1195af381c390985240dfa68e96cfe6c15443607740f06f015aa21bd3c) |
+| Monthly allowance created (`createSchedule`) | [`0xab1ce2fb…cbea`](https://explorer.test.mezo.org/tx/0xab1ce2fb993e809545ab4d5271f6e1e8323559a4f272b501a08954303f43cbea) |
+| Allowance paid by the relayer (`executeSchedule`) | [`0x1c0bd08c…6352`](https://explorer.test.mezo.org/tx/0x1c0bd08c9f01c082e0358ab5945f0e868bfec86bde3bd868c4077243feb36352) |
+| Relayer fees claimed in MUSD (`claimFees`) | [`0x29a39fbc…d9f8`](https://explorer.test.mezo.org/tx/0x29a39fbcc5a08db9ac5c1801f8f8fccdee46af352bdcb7aaca3810b31436d9f8) |
+| Idle pot money moved into Mezo's sMUSD (`moveToSavings`) | [`0x2ee64d05…b879`](https://explorer.test.mezo.org/tx/0x2ee64d05a58f940f1b9a1ed3365bb1d18a7e8c6a8aa7d0d7b96fb12232fab879) |
+| Brought back from sMUSD to the same pot (`withdrawFromSavings`) | [`0x636f3e27…f17a`](https://explorer.test.mezo.org/tx/0x636f3e27ad4a70d2886a46aeeb12b01bb3db1c2d0e6032fe50d2efbd5957f17a) |
+| Empty pot pays a merchant with MUSD borrowed against BTC (`borrowAndPay`, Mezo `withdrawMUSDWithSignature`) | [`0x3d3463a8…a467`](https://explorer.test.mezo.org/tx/0x3d3463a89506f5c2b859a911ac2c363ec4db0a85ef7f67c5f25984bd532ca467) |
+
+Scripts that produced them: `contracts/script/Showcase.s.sol` and `contracts/script/BorrowToPay.s.sol` (rehearsed first against Mezo's real contracts on a fork with `RehearseBorrowToPay.s.sol`).
 
 ---
 
@@ -106,41 +113,46 @@ flowchart LR
   subgraph People
     S["Sender<br/>browser + MetaMask"]
     R["Requester<br/>phone browser, no wallet"]
+    MR["Merchant<br/>subscribe link"]
   end
 
   subgraph App["app/ · SvelteKit PWA (static)"]
-    SS["Sender screens<br/>pots · payees · invites<br/>allowances · approvals"]
+    SS["Sender screens<br/>pots · payees · approvals<br/>savings · subscriptions · BTC loan"]
     RS["Requester screens<br/>invite · itemized request"]
   end
 
   subgraph Relayer["relayer/ · Hono + viem"]
-    API["HTTP API<br/>/invites · /requests<br/>/approve · /reject"]
+    API["HTTP API<br/>/invites · /requests<br/>/approve · /approve-with-loan"]
     SCH["Scheduler<br/>every 60 s"]
     DB[("relayer-db.json<br/>invites + requests")]
   end
 
-  subgraph Mezo["Mezo testnet"]
-    V["Vault<br/>Pots + PolicyEngine + Multicall"]
-    M["MUSD token"]
+  subgraph Mezo["Mezo"]
+    V["Ìpín Vault<br/>Pots · PolicyEngine · Savings<br/>Checkout · Multicall"]
+    M["MUSD"]
+    SM["sMUSD savings vault"]
+    BO["BorrowerOperations<br/>(BTC troves)"]
   end
 
-  P["Approved payees<br/>vendors · family"]
+  P["Approved payees<br/>vendors · family · merchants"]
 
   S --> SS
   R --> RS
-  SS -- "EIP-712 approval,<br/>setup transactions" --> V
-  SS -- "approve / reject" --> API
-  RS -- "signed request<br/>(browser key)" --> API
-  SS -. "reads: pots, events,<br/>booksBalance()" .-> V
+  MR -. "link" .-> SS
+  SS -- "setup, savings" --> V
+  SS -- "approve (EIP-712)" --> API
+  RS -- "signed request" --> API
   API --- DB
-  API -- "execute(request, sig)<br/>pays BTC gas" --> V
-  SCH -- "executeSchedule(id)" --> V
-  V -- "MUSD transfer" --> P
+  API -- "execute / borrowAndPay<br/>pays BTC gas" --> V
+  SCH -- "executeSchedule" --> V
   V <--> M
+  V <--> SM
+  V -- "withdrawMUSDWithSignature" --> BO
+  V -- "MUSD" --> P
 ```
 
-- **Sender** signs everything that changes a pot. Setup goes straight to the Vault from MetaMask; approvals are EIP-712 signatures the relayer submits.
-- **Requester** never holds money or gas. The invite gives their phone a key that can only sign requests; the sender registers it on-chain per pot, and the contract refuses to pay it.
+- **Sender** signs everything that changes a pot. Setup and savings go straight to the Vault from MetaMask; approvals and loans are EIP-712 signatures the relayer submits.
+- **Requester** never holds money or gas. The sender registers the requester's key per pot, and the contract refuses to pay it.
 - **Relayer** is a liveness dependency, not a safety one: it simulates every call before sending, and the Vault re-checks every rule on-chain.
 
 ### Contracts
@@ -158,32 +170,39 @@ classDiagram
   }
   class PolicyEngine {
     <<abstract>>
-    addPayee(potId, payee)
-    removePayee(potId, payee)
-    addRequester(potId, requester)
+    addPayee / removePayee
+    addRequester
     setCap(potId, cap)
-    createSchedule(potId, payee, amount, start, interval)
-    cancelSchedule(scheduleId)
+    createSchedule / cancelSchedule
     execute(PaymentRequest, signature)
     executeSchedule(scheduleId)
-    invalidateNonce(nonce)
     claimFees()
+  }
+  class Savings {
+    <<abstract>>
+    moveToSavings(potId, amount)
+    withdrawFromSavings(potId, amount)
+    harvestYield()
+  }
+  class Checkout {
+    <<abstract>>
+    borrowAndPay(loan, request, signature)
   }
   class Multicall {
     multicall(bytes[] calls)
   }
   class Vault
   Pots <|-- PolicyEngine
-  PolicyEngine <|-- Vault
+  Pots <|-- Savings
+  PolicyEngine <|-- Checkout
+  Checkout <|-- Vault
+  Savings <|-- Vault
   Multicall <|-- Vault
-  Pots ..> ReentrancyGuard
-  PolicyEngine ..> EIP712
-  PolicyEngine ..> SignatureChecker
 ```
 
-One deployed contract, `Vault is PolicyEngine, Multicall` (ADR-016). No owner, no upgrade, no sweep. The only outflows are `execute` and `executeSchedule` (to approved payees, through `_checkAndDebit`) and `claimFees` (fees already earned, to the immutable relayer address).
+One deployed contract: `Vault is Checkout, Savings, Multicall`. No owner, no upgrade, no sweep. The only ways MUSD leaves are payments to approved payees (`execute`, `executeSchedule`, `borrowAndPay`, all through the same checks), savings deposits that stay credited to their pot, and `claimFees` (fees already earned, to the immutable relayer address).
 
-Every payment passes the same checks: the payee is approved and is not a requester, the amount is above zero, it fits the pot's limit for the current 30-day period, and the pot covers the amount plus the flat fee. Request-mode payments also need the sender's EIP-712 signature (ECDSA or ERC-1271) over that exact request, with an unused nonce and an unexpired deadline.
+Every payment passes the same checks: the payee is approved and is not a requester, the amount is above zero, it fits the pot's limit for the current 30-day period, and the pot covers the amount plus the flat fee. Request payments also need the sender's EIP-712 signature (ECDSA or ERC-1271) over that exact request, with an unused nonce and an unexpired deadline.
 
 ### Request → approve → pay
 
@@ -213,228 +232,145 @@ sequenceDiagram
   App-->>Bisi: request shows Paid
 ```
 
-### One-transaction setup
+### Pay with a BTC loan
 
 ```mermaid
 sequenceDiagram
+  autonumber
   actor Tunde as Sender (MetaMask)
-  participant App as App
-  participant MUSD as MUSD
+  participant Rel as Relayer
   participant Vault as Vault
+  participant BOS as Mezo BorrowerOperationsSignatures
+  actor Shop as Merchant
 
-  App->>Tunde: sign MUSD permit (free signature)
-  Tunde-->>App: permit signature
-  App->>Vault: multicall([createPot House, createPot Upkeep,<br/>createSplit 75/25, depositWithPermit 10 MUSD])
-  Vault->>MUSD: permit + transferFrom (inside depositWithPermit)
-  Vault-->>App: pots created, split saved, 7.50 / 2.50 credited
+  Tunde->>Tunde: sign PaymentRequest + WithdrawMUSD loan (EIP-712)
+  Tunde->>Rel: POST /requests/:id/approve-with-loan
+  Rel->>Vault: borrowAndPay(loan, request, signature) + trove hints
+  Vault->>BOS: withdrawMUSDWithSignature(amount + fee → Vault)
+  BOS-->>Vault: MUSD minted against the sender's BTC
+  Vault->>Vault: credit the pot, run the normal payment checks
+  Vault->>Shop: MUSD
+  Note over Vault: any failed check reverts everything: nothing borrowed, nothing paid
 ```
-
-Each inner call is a self-delegatecall with the sender's own `msg.sender`, so it passes exactly the checks it would pass alone. If any step fails, the whole batch reverts.
-
-### Where it is going
-
-```mermaid
-flowchart TB
-  subgraph Funding
-    F1["MUSD deposit · Banxa card link (W1)"]
-    F2["Borrow MUSD against BTC (W2)"]
-  end
-  subgraph Spenders
-    S1["Requester: on request (W1)"]
-    S2["Schedule: allowances, subscriptions (W1)"]
-    S3["AI agent: per use, x402 (W2)"]
-  end
-  PE["Vault + PolicyEngine<br/>the only door out"]
-  subgraph Payees
-    P1["Approved MUSD addresses (W1)"]
-    P2["MUSD savings vault for idle pots (W2)"]
-    P3["Naira bank payouts (later)"]
-  end
-  Funding --> PE
-  Spenders --> PE
-  PE --> Payees
-```
-
-- **Payment request:** one EIP-712 format for every payment: pot, payee, amount, item hash, nonce, expiry.
-- **Release modes:** on request (sender's signature), on schedule (date and limit checked on-chain), per use (x402 under a sender mandate, Wave 2), borrow to pay (a Mezo trove draw and a payment in one transaction, Wave 2). Designs: [docs/wave2.md](docs/wave2.md).
-- **Checks:** Wave 1 has one PolicyEngine with built-in checks (ADR-013). Pluggable policies move to Wave 2.
 
 ### Repo layout
 
 ```
 ipin/
-  docs/          money-rules.md (write first), security reviews
-  contracts/     Foundry: Vault, Pots, PolicyEngine, policies/, adapters/
-  relayer/       TypeScript (viem): submits signed requests, runs schedules
-  packages/      shared: ABIs, EIP-712 types, amounts (used by relayer and app)
-  app/           phone-first web app: sender screens + requester screens
-  scripts/       repo tooling; simulate-month (50 families, 30 days) is still to do
+  contracts/     Foundry: Vault (Pots, PolicyEngine, Savings, Checkout, Multicall), tests, scripts
+  relayer/       TypeScript (Hono + viem): submits signed requests and loans, runs schedules
+  packages/      shared: ABIs, EIP-712 types (PaymentRequest, WithdrawMUSD), Mezo ABIs, amounts
+  app/           phone-first PWA (SvelteKit): sender, requester and merchant screens
+  docs/          money-rules.md, decisions.md, security-review.md, api.md, agents.md, demo.md
+  deployments/   mezo-testnet.json: the one source for the Vault, MUSD and relayer addresses
 ```
 
-Stack: Solidity 0.8.24 + Foundry + OpenZeppelin 5, TypeScript + viem for the relayer, SvelteKit for the phone-first web app (PWA).
+Stack: Solidity 0.8.24, Foundry, OpenZeppelin 5; TypeScript, Hono and viem for the relayer; SvelteKit / Svelte 5 for the app; pnpm workspace on Node 22.
+
+```sh
+pnpm install && git submodule update --init --recursive
+pnpm check            # format, lint, all tests
+pnpm test:ci          # 10k fuzz runs + deep invariants
+```
 
 ---
 
 ## Money rules
 
-Write these into `docs/money-rules.md` before any contract code.
+Full testable statements and test names: [docs/money-rules.md](docs/money-rules.md). Each rule has a test that was written to fail first, and cites the rule ID.
 
 | Rule | Statement |
 | --- | --- |
-| R1 Units | All amounts are MUSD base units (18 decimals). No floating point anywhere, frontend included. |
-| R2 Splits | The pieces of a deposit sum to the deposit exactly. Any remainder goes to one named pot (default: savings). |
+| R1 Units | All amounts are MUSD base units (18 decimals). No floating point anywhere, app included. |
+| R2 Splits | The pieces of a deposit sum to the deposit exactly. Any remainder goes to one named pot. |
 | R3 Replays | Every payment request has a nonce and an expiry. A used or expired request is rejected. |
 | R4 Fees | The relayer fee is a flat amount per payment, charged once, from the same pot, recorded as its own entry. |
 | R5 Pending | Money awaiting provider or bank confirmation sits in a pending state: out of the pot, not yet spent. |
-| R6 Refunds | A failed or timed-out payout returns the full amount and the fee to the original pot. |
-| R7 Caps | Each pot's spending cap resets on a fixed period; spending in a period never exceeds the cap. |
-| R8 Approval | A request-mode payment executes only with the sender's signature on that exact request. |
+| R6 Refunds | A failed payout returns the full amount and the fee to the original pot. Today every payout settles in one transaction, so a failure reverts and nothing leaves. |
+| R7 Caps | Each pot's limit resets every 30 days; spending in a period never exceeds it. |
+| R8 Approval | A request payment executes only with the sender's signature on that exact request. |
 | R9 Schedule | A scheduled payment executes at most once per period, on or after its date, to its named payee. |
-| R10 Savings | Money moved to the savings vault stays credited to its pot, and withdrawals return to the same pot. |
+| R10 Savings | Money in the savings vault stays credited to its pot, and withdrawals return to the same pot. Yield is shared per pot by index. |
+| R13 Borrow-to-pay | A loan against the sender's BTC is minted to the Vault, credited to the pot and paid out in the same transaction, through the same checks; a loan signature works only through Ìpín. |
 
-## Invariants (must hold after every transaction)
+## Invariants (hold after every transaction)
 
-- **I1:** vault MUSD balance + savings vault position = sum of pot balances + pending + unclaimed fees.
+- **I1:** the Vault's MUSD + savings position = pot balances + saved amounts + unclaimed fees + surplus (`booksBalance()`).
 - **I2:** every deposit = the sum of the pot credits it created.
-- **I3:** spending per pot per period ≤ its cap.
+- **I3:** spending per pot per period ≤ its limit.
 - **I4:** each nonce is used at most once.
 - **I5:** money leaves only to an approved payee.
-- **I6:** no request-mode payment executes without the sender's approval.
+- **I6:** no request payment executes without the sender's approval.
 
-**How we prove it:** Foundry invariant tests for I1–I6, one failing-first test per rule, a simulated month (50 families, 30 days, with retries and failed top-ups) ending on "books balance", and a `booksBalance()` view function the app shows as a badge.
+Foundry invariant tests check I1–I6 with a handler that deposits, pays, schedules, saves, harvests and borrows-to-pay at random.
 
----
+## Security
+
+- **No privileged path.** No owner, no upgrade, no sweep, no test-only bypass in `src/`.
+- **Defaults:** custom errors, checks-effects-interactions, `nonReentrant` on every function that moves funds, `SafeERC20` for every token call, exact pragma.
+- **Two internal reviews** ([docs/security-review.md](docs/security-review.md)). The second checked savings and borrow-to-pay against Mezo's source. It fixed one medium issue (a loan signature could be used outside Ìpín, stranding MUSD) and one low issue (trove hints), and documents the rest.
+- **Tests:** 109 contract tests (fuzzed), 10,000-run fuzzing in CI, invariants I1–I6, plus 167 tests across the relayer, app and shared package.
 
 ## Scope
 
-| Component | Wave 1 (Oct 16–26) | Wave 2 (Nov 2–15) | Later |
+| Area | Built | Next | Later |
 | --- | --- | --- | --- |
-| Pots | Pots, split on deposit, remainder rule | Templates (school fees, medical, subscriptions, agent budget); multiple senders per pot | More templates |
-| Release modes | On request with approval; on schedule (also covers subscriptions) | Per use (x402, agent mandates); borrow-to-pay checkout | Milestone release with photo proof |
-| Policy engine | Caps, approved payees, nonces, approvals | Approval thresholds | Custom rule plug-ins |
-| Requesters and spenders | Relative or site manager (phone web app) | AI agent with a mandate (x402); merchant subscribe links | Telegram or WhatsApp bot |
-| Payees | Approved MUSD addresses; airtime and data adapter (sandbox) | Naira bank payouts to vendors (partner, mainnet); airtime adapter as an x402 endpoint | More countries |
-| Funding | MUSD deposit; Banxa card on-ramp link | Borrow MUSD against BTC (Mezo troves); recurring top-ups from the sender | Tokenized stocks as collateral (BNB Chain or Ethereum) |
-| Savings | — | Idle pots in Mezo's MUSD savings vault (sMUSD), yield credited per pot (built) | — |
-| Proof | Invariant tests, simulated month, booksBalance() | Statement export for senders | Third-party audit |
+| Pots | Pots, exact splits, monthly limits, 7 templates | Multiple senders per pot | More templates |
+| Release modes | On request, on schedule, borrow-to-pay | Agents paying per call under a signed mandate (x402, ERC-1271 + Permit2) | Milestone release with photo proof |
+| Spenders | Requesters on a phone, schedules, merchant subscribe links, agent weekly budgets | Approval thresholds | Telegram or WhatsApp bot |
+| Payees | Approved MUSD addresses | Naira bank payouts to vendors (needs a licensed partner) | More countries |
+| Funding | MUSD deposit with permit; MUSD borrowed against BTC | Recurring top-ups from the sender | Tokenized stocks as collateral |
+| Savings | sMUSD with per-pot yield | — | — |
+| Proof | Invariant tests, `booksBalance()`, on-chain statement | Statement export | Third-party audit |
 | Chain | Mezo testnet | Mezo mainnet | Base, BNB Chain |
-
-## Wave 1 schedule
-
-| Dates | Work |
-| --- | --- |
-| Oct 16–17 | Decisions, Discord questions, partner calls, interview 3 senders |
-| Oct 16–19 | Vault, pots and approvals (contracts) |
-| Oct 18–21 | Invariant tests and simulated month |
-| Oct 19–21 | Relayer and payment requests |
-| **Oct 20** | **Security review 1** |
-| Oct 20–22 | Airtime adapter (sandbox), savings vault |
-| Oct 21–24 | Sender and requester screens |
-| Oct 23–24 | Testnet deploy, end to end |
-| **Oct 24** | **Security review 2** |
-| Oct 24–25 | Deck, video, README |
-| **Oct 25** | **Submit** (deadline Oct 26, 16:00) |
-
-### Done when
-
-- [ ] Decisions: every "Decide" item answered, Discord questions posted, payout partner and airtime provider contacted, three senders interviewed
-- [ ] Contracts: deposit, split, request-and-approve, scheduled allowance and refund work in Foundry tests
-- [ ] Tests: I1–I6 hold over the simulated month; one failing-first test per rule R1–R10
-- [ ] Relayer: a signed request from a phone settles on testnet with no gas from the requester
-- [ ] Security review 1: AI-assisted audit against reentrancy, access control and fund-transfer risks; findings fixed
-- [ ] Adapters: a sandbox airtime top-up succeeds, a forced failure refunds the pot, and idle funds reach the savings vault
-- [ ] Screens: sender creates pots and approves; requester raises a cement request; statement shows booksBalance()
-- [ ] End to end: a non-crypto person completes the house flow on testnet without help
-- [ ] Security review 2: final review, report added to the repo
-- [ ] Materials: deck, two-minute video and README finished, every checklist item ticked
-
----
-
-## Mezo reference
-
-| Item | Value |
-| --- | --- |
-| Mezo testnet | chain `eip155:31611`, RPC `https://rpc.test.mezo.org`, explorer `https://explorer.test.mezo.org` |
-| Mezo mainnet | chain `eip155:31612`, explorer `https://explorer.mezo.org` |
-| Faucet | `https://faucet.test.mezo.org` (test BTC and MEZO; get MUSD by borrowing or swapping in `https://testnet.mezo.org`) |
-| MUSD (testnet) | `0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503` |
-| MUSD (mainnet) | `0xdD468A1DDc392dcdbEf6db6e34E89AA338F9F186` |
-| MUSD details | 18 decimals; supports EIP-2612 permit and Permit2; EIP-712 domain name `Mezo USD`, version `1` |
-| x402 | facilitator `https://facilitator.vativ.io` (pays gas in BTC); settlement proxy `0x402085c248EeA27D92E8b30b2C58ed07f9E20001`; SDK `@x402/evm` (testnet from v2.10.0) |
-| Gas | BTC (tBTC bridged from Ethereum); ~3 s finality, no reorgs |
-| Oracles | Pyth (has MUSD/USDC/USDT feeds) |
-| Bridge | Wormhole for MUSD and MEZO |
-| Docs | `https://mezo.org/docs/developers/` · MUSD repo `https://github.com/mezo-org/musd` |
-| Support | Mezo Discord `https://discord.mezo.org` (ask for the Developer role as a hackathon participant) |
-
-The savings vault, Banxa and other ecosystem projects were named at the Oct 13 kickoff. Verify addresses and interfaces in the docs or Discord before relying on them.
-
----
-
-## Judging (and how we earn it)
-
-| Criterion | Weight | How we earn it |
-| --- | --- | --- |
-| Mezo integration | 30% | MUSD is the unit of every pot, rule and payment; idle pots in the MUSD savings vault; gasless signed requests; relayer fees in MUSD |
-| Product and business viability | 30% | A real, emotional problem; interviews with senders; spending goes to vendors and services, not cash; a fee per payment |
-| Technical implementation | 20% | Policy plug-ins, payee adapters, invariant tests, simulated month, booksBalance() on-chain, two security reviews |
-| User experience | 10% | Judges will use it, including non-technical people: request in a tap, approve in a tap, nobody pays gas |
-| Submission materials | 10% | The house story in the first 15 seconds; video ends on "books balance" |
-
-Kickoff takeaways: judges use the live product and read the code to check it does what the UI claims; mockups won't win; mainnet is valued above testnet; loss of funds is the biggest red flag; an AI-assisted audit is acceptable; spend time on the user journey before the deck.
-
-### Submission materials
-
-- [x] Live testnet link: https://ipin-ten.vercel.app
-- [ ] Public GitHub repo with README, rules document, security review reports and Penny credit
-- [x] Deck: [Google Slides](https://docs.google.com/presentation/d/1TV1C-6S-KPhzUcZUcKJrSV19zjBCZ63WyillbbS2ReY/edit?usp=sharing)
-- [x] Two-minute pitch video: https://youtu.be/MmmpK6DZjj0
-- [ ] AKINDO form (name, category, TL;DR, how it works, target group, stack, track, chain, status, readiness, three milestones, team)
-- [ ] Discord Developer role requested
-- [ ] KYB documents gathered early (ID, proof of address, W-8BEN, wallet address)
-
-## Pitch
-
-**Video (2 min):** hook with the unfinished house (0:00) → the problem (0:15) → sender creates pots in one transaction (0:30) → site manager requests cement, sender approves, vendor paid (0:45) → upkeep allowance and a refused request (1:10) → "books balance" (1:25) → same engine for school fees, subscriptions, agents, borrow-to-pay (1:40). Full script: [docs/demo.md](docs/demo.md).
-
-**Deck:** title → problem → the idea → how it works → why Mezo → proof → beyond the house + business model → roadmap and team.
-
-**Form drafts:** Category: purpose-bound payments. TL;DR: Send money for a purpose; Ìpín makes sure it's spent on that purpose, held in dollars until then. Track: both. Track 2 is primary (no-wallet requesters, vendors, agents). Track 1 comes through the savings vault and, in Wave 2, borrow-to-pay on Mezo troves. Status: entirely new.
-
----
 
 ## Risks
 
 | Risk | Mitigation |
 | --- | --- |
-| No naira bank-payout partner | Wave 1 pays approved MUSD addresses and a sandbox; contact payout partners this week |
-| No real demand | Interview 3+ people who send money home; put answers in the deck |
-| Collusion (requester and vendor fake a request) | Sender approval on itemized requests, price checks, milestone photos for labour; say it honestly in the pitch |
-| Requester wallet UX | Passkey or embedded wallet; check Mezo Passport |
-| Savings vault not callable from our contract | Ask in Discord; fall back to Wave 2 |
-| Loss of funds | Rules R1–R10, invariants I1–I6, two security reviews |
-| Scope creep | The scope table is fixed |
+| Collusion (requester and vendor fake a request) | Itemized requests, the sender checks prices before signing; milestone photos are planned |
+| BTC price drop on a borrow-to-pay trove | The app refuses loans that leave the trove under 150% and shows the ratio before and after |
+| sMUSD is upgradeable by Mezo | Stated as a trust assumption; savings are optional per pot |
+| No naira payout partner yet | Pays approved MUSD addresses today; partner outreach ongoing |
+| Relayer goes down | Payments pause but no money is at risk; the Vault re-checks every rule |
 
-## Open questions
+## Mezo reference
 
-**Ask in the Mezo Discord**
-- [ ] Does purpose-bound money (house example) fit Track 2?
-- [ ] MUSD savings vault: contract address, interface, and can a contract deposit on behalf of pots?
-- [ ] Banxa: embeddable widget or deep link that delivers MUSD to a given address?
-- [ ] Permit2 on Mezo testnet, and does MUSD permit work there?
-- [ ] Does Mezo Passport support passkey or embedded wallets for non-crypto users?
-- [ ] Do Mezzate or a "Mezo Pay" project already do something similar?
+| Item | Value |
+| --- | --- |
+| Mezo testnet | chain `31611`, RPC `https://rpc.test.mezo.org`, explorer `https://explorer.test.mezo.org` |
+| Mezo mainnet | chain `31612`, explorer `https://explorer.mezo.org` |
+| Faucet | `https://faucet.test.mezo.org` |
+| MUSD (testnet) | `0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503` |
+| sMUSD (testnet) | `0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16` |
+| BorrowerOperationsSignatures (testnet) | `0xD757e3646AF370b15f32EB557F0F8380Df7D639e` |
+| MUSD details | 18 decimals; EIP-2612 permit; EIP-712 domain `Mezo USD`, version `1` |
+| Docs | `https://mezo.org/docs/developers/` · MUSD source `https://github.com/mezo-org/musd` |
 
-**Decide**
-- [ ] Team: who owns contracts, relayer and adapters, frontend, deck and video
-- [ ] Airtime provider (VTpass or Reloadly) and sandbox sign-up
-- [ ] Shortlist of naira bank-payout partners
-- [ ] Account model: own vault plus relayer, or ERC-4337 smart accounts (check if a bundler runs on Mezo)
-- [ ] Relayer fee amount and cap reset period
-- [ ] Final product name
+## Team
 
----
+- **adetyaz**: solo builder (contracts, relayer, app, design, research).
 
 ## Credits
 
 - Testing method adapted from Penny (https://github.com/Kingnanaweb3/penny): map the money, check the rules, hunt, prove then fix, trial balance. Reused code must be open source and cited, per the buildathon rules.
+
+---
+
+## Build log
+
+**Wave 1 (Oct 16–26)**
+- Vault with pots, exact splits, monthly limits and approved payees; no owner, no upgrade.
+- Requests signed on a phone with no wallet, approved by the sender with one EIP-712 signature, paid by the relayer.
+- Monthly allowances on a schedule, run by the relayer; flat MUSD fee per payment.
+- One-transaction setup (multicall + MUSD permit).
+- `booksBalance()` on-chain and in the app; invariants I1–I6; rules R1–R9 tested; first security review.
+- Phone-first PWA for senders and requesters; relayer on Render; app on Vercel.
+
+**Wave 2 (Nov 2–15)**
+- Savings in Mezo's sMUSD with per-pot yield (R10).
+- Borrow-to-pay: pay a merchant with MUSD borrowed against BTC, in one transaction (R13), and "Pay with a BTC loan" on the approval card.
+- Subscriptions screen and merchant subscribe links.
+- Seven purpose templates; AI agent weekly budgets (x402, step one).
+- Second security review: loan signatures only work through Ìpín (M-02), relayer trove hints (L-04).
+- Redeployed and verified on Mezo testnet with an explorer link for every call.

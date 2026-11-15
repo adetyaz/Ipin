@@ -296,6 +296,20 @@ async function readMembers(
 }
 
 export async function readSchedules(potId: bigint): Promise<ScheduleView[]> {
+  return readSchedulesOf([potId])
+}
+
+/** Schedules of any of `potIds`, in one pass over the Vault's schedules. */
+export async function readSchedulesOf(
+  potIds: bigint[],
+): Promise<ScheduleView[]> {
+  const wanted = new Set(potIds)
+  return readAllSchedules((s) => wanted.has(s.potId))
+}
+
+async function readAllSchedules(
+  keep: (s: { potId: bigint }) => boolean,
+): Promise<ScheduleView[]> {
   const address = vault()
   const count = await publicClient.readContract({
     address,
@@ -310,7 +324,7 @@ export async function readSchedules(potId: bigint): Promise<ScheduleView[]> {
       functionName: "getSchedule",
       args: [id],
     })
-    if (s.potId !== potId) continue
+    if (!keep(s)) continue
     const nextDue = await publicClient.readContract({
       address,
       abi: vaultAbi,
@@ -645,6 +659,40 @@ export async function setupInOneTransaction(plan: SetupPlan): Promise<Hex> {
       }),
     )
   }
+  return send("multicall", [calls])
+}
+
+/**
+ * Accept a merchant subscription in ONE transaction (docs/wave2.md 2.2):
+ * add the merchant as a payee of the pot (unless it already is) and create
+ * the schedule, first payment due now. Same contract calls a sender makes by
+ * hand, batched with Vault.multicall; if either reverts, neither happened.
+ */
+export async function subscribeInOneTransaction(sub: {
+  potId: bigint
+  payee: Address
+  amount: bigint
+  interval: bigint
+  start: bigint
+  alreadyPayee: boolean
+}): Promise<Hex> {
+  const calls: Hex[] = []
+  if (!sub.alreadyPayee) {
+    calls.push(
+      encodeFunctionData({
+        abi: vaultAbi,
+        functionName: "addPayee",
+        args: [sub.potId, sub.payee],
+      }),
+    )
+  }
+  calls.push(
+    encodeFunctionData({
+      abi: vaultAbi,
+      functionName: "createSchedule",
+      args: [sub.potId, sub.payee, sub.amount, sub.start, sub.interval],
+    }),
+  )
   return send("multicall", [calls])
 }
 

@@ -1,8 +1,10 @@
 # CLAUDE.md — agent instructions for Ìpín
 
 Ìpín is purpose-bound money on Mezo: a sender funds pots in MUSD, and money leaves a pot only to
-approved payees, within caps, via signed requests or schedules. Mezo Buildathon: Wave 1 submitted; Wave 2 builds Nov 2–15.
+approved payees, within caps, via signed requests or schedules. Mezo Buildathon: Wave 1 submitted; Wave 2 builds Nov 2–15 (work on `feat/wave2-mezo-integration`).
 **README.md is the source of truth** (Scope, money rules R1–R10, invariants I1–I6, Mezo reference).
+
+**Current state and next steps: `docs/handoff.md` (read it first).**
 
 Read before writing code: `README.md` → `docs/money-rules.md` → `CODING_STANDARDS.md` → `docs/decisions.md`.
 
@@ -33,7 +35,7 @@ Mezo testnet RPC alias: `--rpc-url mezo_testnet`.
 
 ## Non-negotiables
 
-1. **Wave 2 scope.** Build only what the README Scope table lists under Wave 1 or Wave 2. Wave 2
+1. **Wave 2 scope.** Build only what the README Scope table lists under Built or Next. Wave 2
    priorities after Wave 1 judging: R10 savings in Mezo's sMUSD, then R13 borrow-to-pay through
    Mezo's BorrowerOperations (docs/wave2.md). "Later" items are out — don't stub them in either.
 2. **One path for money:** signed request (or on-chain schedule) → PolicyEngine → settlement.

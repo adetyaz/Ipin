@@ -15,10 +15,16 @@ export const mezoBorrowerOperationsAbi = parseAbi([
 
 export const mezoTroveManagerAbi = parseAbi([
   "function priceFeed() view returns (address)",
+  "function sortedTroves() view returns (address)",
   "function getTroveStatus(address borrower) view returns (uint8)",
   "function getTroveColl(address borrower) view returns (uint256)",
   "function getTroveDebt(address borrower) view returns (uint256)",
   "function getTroveMaxBorrowingCapacity(address borrower) view returns (uint256)",
+])
+
+export const mezoSortedTrovesAbi = parseAbi([
+  "function getPrev(address id) view returns (address)",
+  "function getNext(address id) view returns (address)",
 ])
 
 export const mezoPriceFeedAbi = parseAbi([
