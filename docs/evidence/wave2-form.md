@@ -1,8 +1,7 @@
-# AKINDO Wave 2 form: draft answers
+# AKINDO Wave 2 form: answers
 
-Copy into the AKINDO form. Replace every `[[…]]` before submitting. Explorer links point at the
-Vault named in the README; after the next redeploy they are refreshed there, so re-copy them from
-the README's "On-chain evidence" table on the day you submit.
+Paste-ready. URLs are written out in full because the form may not render Markdown. Repo links
+point at `main`, so merge `feat/wave2-mezo-integration` before submitting.
 
 ## Track
 
@@ -15,58 +14,105 @@ adetyaz: solo builder (contracts, relayer, app, design, research).
 
 ## Updates in this Wave
 
-We acted on every point in the Wave 1 feedback.
+Wave 1 judges asked for deeper Mezo integration and proof that the full flow works on-chain. This
+wave adds two Mezo Bitcoin-finance features (savings in sMUSD and paying with a BTC loan), proves
+every money path with a transaction on Mezo testnet, adds subscriptions, merchant links, purpose
+templates and AI agent budgets, and closes a second security review.
 
-**Deeper Mezo integration (Track 1).**
-- **Savings in Mezo's sMUSD:** idle pot money moves into `MUSDSavingsRate` from the Vault and back to
-  the same pot. Yield is shared out per pot by index, so a late saver never takes earlier yield.
-  In the app: Move to savings, Bring back, Check for new yield.
-- **Borrow-to-pay:** a sender with BTC on Mezo pays an approved vendor with MUSD borrowed against
-  their trove, in one transaction, through Mezo's `BorrowerOperationsSignatures`. If any check
-  fails, nothing is borrowed and nothing is paid. In the app, "Pay with a BTC loan" on the approval
-  card shows the collateral ratio before and after, and refuses loans that would leave the trove
-  under 150%.
+Live app: https://ipin-ten.vercel.app
+New verified Vault (Mezo testnet): https://explorer.test.mezo.org/address/0x8B6D769249e97aEefE1Bc2a60318E8297AAa7082
+Repo: https://github.com/adetyaz/Ipin
 
-**The full flow on Mezo testnet, verified.** Vault [0x8B6D…7082](https://explorer.test.mezo.org/address/0x8B6D769249e97aEefE1Bc2a60318E8297AAa7082). Every call has an
-explorer link: one-transaction setup (multicall), approved payment (`execute`), monthly allowance
-(`createSchedule` + `executeSchedule` by the relayer), fees (`claimFees`), savings in and out, and
-borrow-to-pay (`borrowAndPay`). README → "On-chain evidence".
+1. Savings in Mezo's sMUSD (Track 1)
+- Money waiting in a pot can now earn in Mezo's MUSD savings vault (MUSDSavingsRate, sMUSD). The
+  Vault deposits it and withdraws it back to the same pot. While saved, it stays credited to its
+  pot and can't be spent, so the purpose rules still hold.
+- Yield is shared out per pot with an index, and is harvested before every move in or out. A pot
+  that starts saving late never takes yield earned before it joined.
+- In the app, each pot has a Savings card: Move to savings, Bring back, Check for new yield.
+- On-chain: money moved in https://explorer.test.mezo.org/tx/0x2ee64d05a58f940f1b9a1ed3365bb1d18a7e8c6a8aa7d0d7b96fb12232fab879
+  and brought back https://explorer.test.mezo.org/tx/0x636f3e27ad4a70d2886a46aeeb12b01bb3db1c2d0e6032fe50d2efbd5957f17a
+- Code: https://github.com/adetyaz/Ipin/blob/main/contracts/src/Savings.sol (money rule R10)
 
-**Subscriptions and merchant links.** A Subscriptions screen lists everything a pot pays on a
-schedule, with next date, monthly total, one-tap stop and a "short by $X" warning. A merchant makes
-a subscribe link with no wallet; the sender signs one transaction that adds the merchant as a payee
-and starts the schedule. The merchant never gets access to the sender's wallet.
+2. Pay with a BTC loan (Track 1)
+- A sender who holds BTC on Mezo can pay an approved vendor with MUSD borrowed against their BTC,
+  without selling it. In one transaction, the Vault calls Mezo's BorrowerOperationsSignatures
+  (withdrawMUSDWithSignature) with the sender's signed loan. Mezo mints the MUSD to the Vault, it
+  is credited to the pot, and it is paid to the vendor through the same checks as every other
+  payment (approved payee, monthly limit, signed request). If any check fails, the whole
+  transaction reverts: nothing is borrowed and nothing is paid.
+- In the app, the approval card has "Or pay with a BTC loan". It shows the trove's collateral
+  ratio before and after the loan, and refuses a loan that would leave the trove under 150%.
+- The relayer has a new endpoint (POST /requests/:id/approve-with-loan) and fills in Mezo's trove
+  position hints.
+- On-chain: a pot with no money paid a merchant 1 MUSD, borrowed against BTC, in one transaction:
+  https://explorer.test.mezo.org/tx/0x3d3463a89506f5c2b859a911ac2c363ec4db0a85ef7f67c5f25984bd532ca467
+- Before sending, we rehearsed it against Mezo's real contracts on a fork (script
+  RehearseBorrowToPay.s.sol). Mezo sends every borrower a zero-value BTC transfer, which a
+  contract must accept; the Vault handles it.
+- Code: https://github.com/adetyaz/Ipin/blob/main/contracts/src/Checkout.sol (money rule R13)
 
-**Purpose templates and agent budgets.** Seven templates (build a house, school fees, medical
-care, shop stock, subscriptions, AI agent budget, pay with BTC) set up the right pots and monthly
-limits in a few taps. An AI agent can get a
-weekly budget: a schedule tops up the agent's wallet from a pot, so it can pay per use (x402) and
-never spend more than the pot allows. No new contracts: it uses the same payee and schedule rules.
+3. Subscriptions and merchant subscribe links (Track 2)
+- A Subscriptions screen lists everything a pot pays on a schedule: who, how much, the next date,
+  the monthly total, a one-tap Stop, and a "short by $X" warning before a pot runs out.
+- A merchant (a school, gym or shop) opens https://ipin-ten.vercel.app/merchant, enters a name,
+  address, amount and interval, and gets a link. They need no wallet. The sender opens the link,
+  picks a pot and signs one transaction that approves the merchant and starts the schedule. The
+  merchant can only receive that amount on that schedule, and never gets access to the wallet.
+- The relayer pays each schedule when it's due, at most once per period, within the pot's limit:
+  https://explorer.test.mezo.org/tx/0x1c0bd08c9f01c082e0358ab5945f0e868bfec86bde3bd868c4077243feb36352
 
-**Security.** A second internal review of savings and borrow-to-pay against Mezo's source found
-and fixed one medium issue (a borrow signature could be used outside Ìpín, stranding MUSD) and one
-low (trove hints). 109 contract tests, 10k-run fuzzing and invariants I1–I6 pass. Every money rule
-has a test that cites it.
+4. Purpose templates
+- Seven templates on the Create pots screen: Build a house, School fees, Medical care, Shop stock,
+  Subscriptions, AI agent budget and Pay with BTC. Each sets up the right pots and monthly limits
+  in a few taps: https://ipin-ten.vercel.app/send/new
 
-**Evidence from senders.** [[N]] senders interviewed and tested on testnet.
-[[Two-line summary of what they said, e.g. "4 of 5 have had money spent on something else; all 5
-approved a request unaided."]]
-> [[Quote 1 — first name, city]]
-> [[Quote 2 — first name, city]]
+5. AI agent weekly budgets (x402, first step)
+- A sender can give an AI agent a weekly budget: a schedule tops up the agent's wallet from a pot,
+  so the agent can pay for services per call (x402) and can never spend more than the pot allows.
+  It uses the existing payee and schedule rules, with no new contract code.
+- Design and next step: https://github.com/adetyaz/Ipin/blob/main/docs/agents.md
 
-## Milestones for Wave 3
+6. The full flow proven on Mezo testnet
+- We redeployed and verified the Vault with all fixes, then ran every money path on it. Each has an
+  explorer link:
+  - One-transaction setup (create pots, add payees, split MUSD): https://explorer.test.mezo.org/tx/0xf74ad8479252d06291fa7354e579f5ecda93959ad074a120eb5d9ad9423d459c
+  - Sender-approved request paid straight to the vendor: https://explorer.test.mezo.org/tx/0x9a8b2a1195af381c390985240dfa68e96cfe6c15443607740f06f015aa21bd3c
+  - Monthly allowance created: https://explorer.test.mezo.org/tx/0xab1ce2fb993e809545ab4d5271f6e1e8323559a4f272b501a08954303f43cbea
+  - Allowance paid by the relayer: https://explorer.test.mezo.org/tx/0x1c0bd08c9f01c082e0358ab5945f0e868bfec86bde3bd868c4077243feb36352
+  - Relayer fees claimed in MUSD: https://explorer.test.mezo.org/tx/0x29a39fbcc5a08db9ac5c1801f8f8fccdee46af352bdcb7aaca3810b31436d9f8
+  - Savings in and out, and pay with a BTC loan: links in sections 1 and 2.
 
-1. **Mainnet.** Deploy the reviewed Vault on Mezo mainnet with sMUSD and borrow-to-pay, and onboard
-   the first [[10]] real senders from the interviews.
-2. **Agents and per-use payments.** x402 agent budgets: a pot tops up an agent's wallet on a
-   schedule (no new contracts), then direct per-call settlement under a signed mandate.
-3. **Templates and payouts.** Templates for school fees, building and family allowance, and naira
-   bank payouts for vendors through a licensed partner ([[partner status]]).
+7. Security
+- A second internal review checked savings and the BTC loan against Mezo's own source code.
+- Fixed, medium: a borrower's loan signature could be sent to Mezo directly, outside Ìpín, which
+  would leave the borrowed MUSD stuck in the Vault. Now the Vault accepts Mezo's borrow call only
+  during its own checkout, so a loan signature only works through Ìpín.
+- Fixed, low: the relayer now passes Mezo's trove position hints.
+- The remaining low and informational findings are documented:
+  https://github.com/adetyaz/Ipin/blob/main/docs/security-review.md
+- Tests: 109 contract tests with fuzzing (10,000 runs in CI), invariant tests that the books always
+  balance and money only reaches approved payees (I1–I6), and 167 tests across the relayer, app
+  and shared package. Every money rule has a test named after it:
+  https://github.com/adetyaz/Ipin/blob/main/docs/money-rules.md
+
+8. Documentation
+- The README describes the whole product, with diagrams of the system, the contracts and the BTC
+  loan flow, and a build log of Wave 1 and Wave 2: https://github.com/adetyaz/Ipin#readme
+
+## Milestones for the next wave
+
+1. Mainnet. Deploy the reviewed Vault on Mezo mainnet with sMUSD savings and pay with a BTC loan,
+   using a fresh deployer key, and onboard the first real senders sending money home to Nigeria.
+2. Agents paying per call. AI agents pay x402 services directly from a pot under a mandate the
+   sender signs (spend limit, payees, expiry), checked by the same policy engine.
+3. More for senders. Recurring top-ups from the sender, statement export, approval thresholds,
+   and more than one sender per pot (siblings funding a parent's upkeep together).
 
 ## Links
 
 - App: https://ipin-ten.vercel.app
 - Relayer health: https://ipin.onrender.com/health
 - Repo: https://github.com/adetyaz/Ipin
-- Demo video: [[Wave 2 video link, or the Wave 1 one: https://youtu.be/MmmpK6DZjj0]]
+- Demo video: [[new 2-minute video link]]
 - Deck: https://docs.google.com/presentation/d/1TV1C-6S-KPhzUcZUcKJrSV19zjBCZ63WyillbbS2ReY/edit?usp=sharing
