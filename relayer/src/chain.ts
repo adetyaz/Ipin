@@ -66,6 +66,14 @@ export interface Chain {
   getSchedule(scheduleId: bigint): Promise<Schedule>
 }
 
+/**
+ * Gas limit for `borrowAndPay` (R13). Mezo's node underestimates a borrow (the
+ * BTC price oracle is a precompile): a borrowAndPay sent at the estimate
+ * (510,018) ran out of gas on testnet, while a successful one used 1,361,811.
+ * Only gas used is paid; Mezo's block limit is 10,000,000.
+ */
+export const BORROW_AND_PAY_GAS = 3_000_000n
+
 /** The call would revert; `reason` is the decoded custom error when known. */
 export class SimulationError extends Error {
   override name = "SimulationError"
@@ -177,7 +185,10 @@ export function createViemChain(opts: ViemChainOptions): Chain {
       } catch (err) {
         throw new SimulationError(describeError(err))
       }
-      return walletClient.writeContract(simulated.request)
+      return walletClient.writeContract({
+        ...simulated.request,
+        gas: BORROW_AND_PAY_GAS,
+      })
     },
 
     async submitExecuteSchedule(scheduleId) {

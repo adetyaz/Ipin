@@ -315,6 +315,15 @@ submissions would succeed again, silently. `RehearseBorrowToPay` returns `direct
 fails unless it reads "Sending BTC failed", so run it before every deploy and after any Mezo
 upgrade.
 
+### L-07 Relayer sent borrow-to-pay with too little gas (fixed, 2026-11-15)
+
+Found on testnet while recording the demo. The relayer let viem take the gas limit from Mezo's
+`eth_estimateGas`, which returned 510,018 for a `borrowAndPay`. The transaction ran out of gas
+on-chain (`0x6f4f03da…1392`, status 0); a successful borrow-to-pay used 1,361,811. No funds moved:
+the whole transaction reverted, as R13 requires. The relayer now sends `borrowAndPay` with a fixed
+limit, `BORROW_AND_PAY_GAS` = 3,000,000 (Mezo's block limit is 10,000,000; only gas used is
+paid). Test: `test_R13_relayerSendsBorrowWithMezoGasLimit`.
+
 ### L-06 sMUSD strategy risk
 
 The Vault counts its sMUSD as 1:1 MUSD (`_savingsPrincipal`), which is how sMUSD shares work. If

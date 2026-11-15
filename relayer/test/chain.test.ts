@@ -10,13 +10,19 @@ import {
   type Hex,
   keccak256,
   numberToHex,
+  parseTransaction,
   zeroAddress,
 } from "viem"
 import { describe, expect, it } from "vitest"
 
 import { mezoTestnet, type PaymentRequest, vaultAbi } from "@ipin/shared"
 
-import { createViemChain, SimulationError, withTroveHints } from "../src/chain"
+import {
+  BORROW_AND_PAY_GAS,
+  createViemChain,
+  SimulationError,
+  withTroveHints,
+} from "../src/chain"
 
 import { payee, relayerAccount, sender, signApproval, vault } from "./helpers"
 
@@ -79,6 +85,8 @@ function mockRpc(opts: MockOptions = {}) {
             }),
           })
         }
+        return "0x"
+      case "borrowAndPay":
         return "0x"
       case "scheduleCount":
         return encodeFunctionResult({ abi: vaultAbi, functionName, result: 1n })
@@ -220,6 +228,25 @@ describe("createViemChain (mocked RPC)", () => {
     expect(err).toBeInstanceOf(SimulationError)
     expect((err as SimulationError).reason).toBe("CapExceeded(1, 0, 5, 3)")
     expect(sent).toHaveLength(0)
+  })
+
+  it("test_R13_relayerSendsBorrowWithMezoGasLimit", async () => {
+    // Mezo's node underestimates borrow gas (its BTC price oracle is a
+    // precompile): a borrowAndPay sent at the estimate ran out of gas on
+    // testnet. The relayer sends it with a fixed limit instead.
+    const { chain, calls, sent } = mockRpc()
+    const loan = {
+      amount: 5n + 25n * 10n ** 16n,
+      upperHint: zeroAddress,
+      lowerHint: zeroAddress,
+      deadline: 2_000_000_000n,
+      signature: `0x${"22".repeat(65)}` as const,
+    }
+    await chain.submitBorrowAndPay(loan, pr, await signApproval(pr))
+    expect(calls).toContain("borrowAndPay")
+    expect(sent).toHaveLength(1)
+    expect(parseTransaction(sent[0] ?? "0x").gas).toBe(BORROW_AND_PAY_GAS)
+    expect(BORROW_AND_PAY_GAS).toBeGreaterThan(1_361_811n)
   })
 
   it("reads schedules with their next due time", async () => {
