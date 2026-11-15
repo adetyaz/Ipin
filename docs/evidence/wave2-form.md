@@ -38,6 +38,12 @@ schedule, with next date, monthly total, one-tap stop and a "short by $X" warnin
 a subscribe link with no wallet; the sender signs one transaction that adds the merchant as a payee
 and starts the schedule. The merchant never gets access to the sender's wallet.
 
+**Purpose templates and agent budgets.** Seven templates (build a house, school fees, medical
+care, shop stock, subscriptions, AI agent budget, pay with BTC) set up the right pots and monthly
+limits in a few taps. An AI agent can get a
+weekly budget: a schedule tops up the agent's wallet from a pot, so it can pay per use (x402) and
+never spend more than the pot allows. No new contracts: it uses the same payee and schedule rules.
+
 **Security.** A second internal review of savings and borrow-to-pay against Mezo's source found
 and fixed one medium issue (a borrow signature could be used outside Ìpín, stranding MUSD) and one
 low (trove hints). 109 contract tests, 10k-run fuzzing and invariants I1–I6 pass. Every money rule
