@@ -1,11 +1,11 @@
-# Status (Wed 2026-11-04, Wave 2 builds Nov 2–15)
+# Status (Sun 2026-11-15, Wave 2 builds Nov 2–15)
 
 Wave 1 is unchanged and live. This page tracks Wave 2 against the judges' Nov 1 feedback and the
 plan in `docs/wave2.md` §7. Earlier snapshots are in git history.
 
 ## Live
 
-- Vault `0x69aF910aF825faE2D06f320080a0A1023A0a48f8` on Mezo testnet, verified, with sMUSD savings
+- Vault `0x8B6D769249e97aEefE1Bc2a60318E8297AAa7082` on Mezo testnet, verified, with sMUSD savings
   (R10) and borrow-to-pay (R13) enabled (`deployments/mezo-testnet.json`).
 - Every Mezo call has an explorer link in the README ("On-chain evidence").
 
@@ -27,10 +27,10 @@ plan in `docs/wave2.md` §7. Earlier snapshots are in git history.
 | --- | --- |
 | R10 savings in sMUSD | Done: contract, app card, on-chain |
 | R13 borrow-to-pay | Done: contract, relayer endpoint, app "Pay with a BTC loan", on-chain |
-| Full flow on testnet + verified Vault | Done (Showcase on `0x69aF…48f8`) |
+| Full flow on testnet + verified Vault | Done (Showcase on `0x8B6D…7082`, Nov 15; borrow-to-pay tx is on the previous Vault `0x69aF…48f8` until a new trove is open) |
 | Subscriptions screen + merchant subscribe link (P0) | Done: `/send/subscriptions`, `/merchant`, `/send/subscribe` (one multicall: addPayee + createSchedule); e2e on a local chain: link → subscribe → relayer pays → stop |
-| Security review of R10/R13 (P0) | Done (second pass in `docs/security-review.md`): M-02 fixed (borrow signature unusable outside Ìpín), L-04 fixed (relayer trove hints); **Vault `0x69aF…` predates the fix: redeploy** |
-| Mainnet deploy (P0) | Not started: needs the testnet redeploy + rehearsal first, real BTC/MUSD and your go-ahead |
+| Security review of R10/R13 (P0) | Done (second pass in `docs/security-review.md`): M-02 fixed (borrow signature unusable outside Ìpín), L-04 fixed (relayer trove hints); deployed in Vault `0x8B6D…7082` (Nov 15) |
+| Mainnet deploy (P0) | Not started: needs the borrow-to-pay rehearsal on a fork (needs an open trove), real BTC/MUSD and your go-ahead |
 | Real sender evidence; track and team in the form | Guide and form draft ready: `docs/evidence/interview-guide.md`, `docs/evidence/wave2-form.md`; interviews and team names pending |
 | P1: templates | Done: 7 presets on `/send/new` (`?template=`), each tested against the form's rules |
 | P1: x402 agent float (step A) | Done (Ìpín side): weekly top-up to the agent's wallet in one transaction, R7 warning; `docs/agents.md`. Not verified: an agent paying a live x402 service |

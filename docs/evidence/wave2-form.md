@@ -28,7 +28,7 @@ We acted on every point in the Wave 1 feedback.
   card shows the collateral ratio before and after, and refuses loans that would leave the trove
   under 150%.
 
-**The full flow on Mezo testnet, verified.** Vault [[0x… verified link]]. Every call has an
+**The full flow on Mezo testnet, verified.** Vault [0x8B6D…7082](https://explorer.test.mezo.org/address/0x8B6D769249e97aEefE1Bc2a60318E8297AAa7082). Every call has an
 explorer link: one-transaction setup (multicall), approved payment (`execute`), monthly allowance
 (`createSchedule` + `executeSchedule` by the relayer), fees (`claimFees`), savings in and out, and
 borrow-to-pay (`borrowAndPay`). README → "On-chain evidence".
