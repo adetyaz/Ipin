@@ -11,8 +11,7 @@ sMUSD and borrow-to-pay on Mezo troves.
 
 ## Team
 
-[[Name — role (contracts / relayer / app / research / design / business)]]
-[[Name — role]]
+adetyaz: solo builder (contracts, relayer, app, design, research).
 
 ## Updates in this Wave
 

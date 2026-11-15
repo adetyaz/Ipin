@@ -35,7 +35,7 @@ Mezo testnet RPC alias: `--rpc-url mezo_testnet`.
 
 ## Non-negotiables
 
-1. **Wave 2 scope.** Build only what the README Scope table lists under Wave 1 or Wave 2. Wave 2
+1. **Wave 2 scope.** Build only what the README Scope table lists under Built or Next. Wave 2
    priorities after Wave 1 judging: R10 savings in Mezo's sMUSD, then R13 borrow-to-pay through
    Mezo's BorrowerOperations (docs/wave2.md). "Later" items are out — don't stub them in either.
 2. **One path for money:** signed request (or on-chain schedule) → PolicyEngine → settlement.
